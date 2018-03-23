@@ -37,6 +37,11 @@
  * Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 
+ define( 'STRIPE_CONNECT_WC_VERSION',  '0.1.0' . ( defined( 'SCRIPT_DEBUG' ) ? time() : '' ) );
+ define( 'STRIPE_CONNECT_WC_BASENAME', plugin_basename( __FILE__ ) );
+ define( 'STRIPE_CONNECT_WC_URL',      plugin_dir_url( __FILE__ ) );
+ define( 'STRIPE_CONNECT_WC_PATH',     dirname( __FILE__ ) . '/' );
+ define( 'STRIPE_CONNECT_WC_INC',      STRIPE_CONNECT_WC_PATH . 'includes/' );
 
 // Use composer autoload.
 require 'vendor/autoload.php';
@@ -142,6 +147,26 @@ final class Stripe_Connect_For_WooCommerce {
 	 */
 	public function hooks() {
 		add_action( 'init', array( $this, 'init' ), 0 );
+		add_action( 'template_redirect', [ $this, 'maybe_check_oauth' ] );
+	}
+
+	public function maybe_check_oauth() {
+
+		if ( ! isset( $_GET['code'] ) && ! isset( $_GET['error'] ) ) {
+			return;
+		}
+
+		if ( ! is_page( 'dashboard' ) ) {
+			return;
+		}
+
+		if ( ! is_user_logged_in() ) {
+			return;
+		}
+
+
+		include 'oauth/oauth/connect.php';
+
 	}
 
 	/**
@@ -232,6 +257,7 @@ final class Stripe_Connect_For_WooCommerce {
 	 *
 	 * @since  0.1.0
 	 *
+	 * @todo Add checks for WooCommerce and WooCommerce Stripe Gateway
 	 * @return boolean True if requirements are met.
 	 */
 	public function meets_requirements() {

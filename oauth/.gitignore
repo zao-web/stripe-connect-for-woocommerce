@@ -1,0 +1,6 @@
+.DS_Store
+.vagrant/
+/vendor/
+composer.lock
+composer.phar
+/config/
