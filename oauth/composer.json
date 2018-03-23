@@ -1,5 +1,6 @@
 {
     "require": {
+        "stripe/stripe-php": "~6.4",
         "league/oauth2-client": "^1.1"
     }
 }
