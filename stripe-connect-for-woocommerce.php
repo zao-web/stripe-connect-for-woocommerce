@@ -148,6 +148,15 @@ final class Stripe_Connect_For_WooCommerce {
 	public function hooks() {
 		add_action( 'init', array( $this, 'init' ), 0 );
 		add_action( 'template_redirect', [ $this, 'maybe_check_oauth' ] );
+		add_action( 'woocommerce_before_template_part', [ $this, 'maybe_show_stripe_button' ] );
+	}
+
+	public function maybe_show_stripe_button( $template ) {
+		if ( 'report.php' !== $template ) {
+			return;
+		}
+
+		include STRIPE_CONNECT_WC_INC . 'dashboard-stripe.php';
 	}
 
 	public function maybe_check_oauth() {
@@ -163,7 +172,6 @@ final class Stripe_Connect_For_WooCommerce {
 		if ( ! is_user_logged_in() ) {
 			return;
 		}
-
 
 		include 'oauth/oauth/connect.php';
 
