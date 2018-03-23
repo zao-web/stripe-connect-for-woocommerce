@@ -35,7 +35,7 @@ if (isset($_GET['code'])){
     // TODO: Save this account ID to your database for later use.
     $account_id = $provider->getResourceOwner($accessToken)->getId();
 
-	update_user_meta( 'stripe_account_id', $account_id );
+	update_user_meta( get_current_user_id(), 'stripe_account_id', $account_id );
 
     // Retrieve the account from Stripe: https://stripe.com/docs/api/php#retrieve_account
     $account = \Stripe\Account::Retrieve($account_id);
