@@ -37,10 +37,16 @@ if (isset($_GET['code'])){
 
 	update_user_meta( get_current_user_id(), 'stripe_account_id', $account_id );
 
+	$token = $oauth->getAccessToken( $_GET['code'] );
+
+	update_user_meta( get_current_user_id(), '_stripe_connect_access_key', $token );
+
     // Retrieve the account from Stripe: https://stripe.com/docs/api/php#retrieve_account
     $account = \Stripe\Account::Retrieve($account_id);
+	$account->payout_schedule = scfwc_get_payout_schedule();
+	$account->save();
 
-    $success = "Your Stripe account has been connected!";
+	wc_add_notice(__( 'Success! Your account has been connected' ) );
 
   }
   catch (Exception $e){

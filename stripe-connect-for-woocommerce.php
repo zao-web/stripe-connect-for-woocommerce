@@ -132,6 +132,8 @@ final class Stripe_Connect_For_WooCommerce {
 	 * @since  0.1.0
 	 */
 	public function plugin_classes() {
+		include_once $this->path . 'includes/settings.php';
+		include_once $this->path . 'includes/helpers.php';
 		// $this->plugin_class = new SCFWC_Plugin_Class( $this );
 
 	} // END OF PLUGIN CLASSES FUNCTION
@@ -146,9 +148,82 @@ final class Stripe_Connect_For_WooCommerce {
 	 * @since  0.1.0
 	 */
 	public function hooks() {
-		add_action( 'init', array( $this, 'init' ), 0 );
-		add_action( 'template_redirect', [ $this, 'maybe_check_oauth' ] );
+		add_action( 'init'                            , [ $this, 'init' ], 0 );
+		add_action( 'template_redirect'               , [ $this, 'maybe_check_oauth' ] );
 		add_action( 'woocommerce_before_template_part', [ $this, 'maybe_show_stripe_button' ] );
+		add_filter( 'wc_stripe_settings'              , [ $this, 'add_connect_settings' ] );
+		add_action( 'edit_user_profile'               , [ $this, 'add_stripe_connect_fields_to_profile' ] );
+		add_action( 'show_user_profile'               , [ $this, 'add_stripe_connect_fields_to_profile' ] );
+		add_action( 'personal_options_update'         , [ $this, 'add_stripe_connect_fields_to_usermeta' ] );
+		add_action( 'edit_user_profile_update'        , [ $this, 'add_stripe_connect_fields_to_usermeta' ] );
+	}
+
+	public function add_connect_settings( $settings = array() ) {
+
+		$settings['connect_header'] = array(
+			'title'       => __( 'Stripe Connect Settings', 'woocommerce-gateway-stripe' ),
+			'type'        => 'title',
+			'description' => __( 'The following defaults will be applied to all seller accounts, and can be overriden at a seller level by admins in the User section.' ),
+		);
+
+		$settings['connect_payout_schedule_interval'] = array(
+			'title'       => __( 'Payout Schedule', 'woocommerce-gateway-stripe' ),
+			'label'       => __( 'Interval', 'woocommerce-gateway-stripe' ),
+			'type'        => 'select',
+			'description' => __( 'Select the payout schedule you would like for sellers by default. This is how often the seller will receive eligble payouts into their account.', 'woocommerce-gateway-stripe' ),
+			'default'     => 'daily',
+			'desc_tip'    => true,
+			'options'     => array(
+				'daily'   => __( 'Daily', 'woocommerce-gateway-stripe' ),
+				'weekly'  => __( 'Weekly', 'woocommerce-gateway-stripe' ),
+				'monthly' => __( 'Monthly', 'woocommerce-gateway-stripe' ),
+			),
+		);
+
+		$settings['connect_payout_schedule_delay_days'] = array(
+			'title'       => __( 'Payout Schedule (Delay Days)', 'woocommerce-gateway-stripe' ),
+			'label'       => __( 'Delay Days', 'woocommerce-gateway-stripe' ),
+			'type'        => 'text',
+			'description' => __( 'Daily payouts will be delayed by this many days.', 'woocommerce-gateway-stripe' ),
+			'default'     => '30',
+			'desc_tip'    => true,
+		);
+
+		$settings['connect_payout_schedule_weekly_anchor'] = array(
+			'title'       => __( 'Payout Schedule (Weekly Anchor)', 'woocommerce-gateway-stripe' ),
+			'label'       => __( 'Weekly Anchor', 'woocommerce-gateway-stripe' ),
+			'type'        => 'select',
+			'description' => __( 'Weekly Payouts will be made on this day.', 'woocommerce-gateway-stripe' ),
+			'default'     => 'monday',
+			'desc_tip'    => true,
+			'options'     => array(
+				'monday'    => __( 'Monday', 'woocommerce-gateway-stripe' ),
+				'tuesday'   => __( 'Tuesday', 'woocommerce-gateway-stripe' ),
+				'wednesday' => __( 'Wednesday', 'woocommerce-gateway-stripe' ),
+				'thursday'  => __( 'Thursday', 'woocommerce-gateway-stripe' ),
+				'friday'    => __( 'Friday', 'woocommerce-gateway-stripe' ),
+			),
+		);
+
+		$settings['connect_payout_schedule_monthly_anchor'] = array(
+			'title'       => __( 'Payout Schedule (Daily Anchor)', 'woocommerce-gateway-stripe' ),
+			'label'       => __( 'Daily Anchor', 'woocommerce-gateway-stripe' ),
+			'type'        => 'text',
+			'description' => __( 'Weekly payouts will be made on this day of the month.', 'woocommerce-gateway-stripe' ),
+			'default'     => '15',
+			'desc_tip'    => true,
+		);
+
+		$settings['connect_default_commission'] = array(
+			'title'       => __( 'Payout Schedule (Default Commission)', 'woocommerce-gateway-stripe' ),
+			'label'       => __( 'Default Commission', 'woocommerce-gateway-stripe' ),
+			'type'        => 'text',
+			'description' => __( 'This is the default amount sellers will receive, plus taxes and shipping.', 'woocommerce-gateway-stripe' ),
+			'default'     => '85',
+			'desc_tip'    => true,
+		);
+
+		return $settings;
 	}
 
 	public function maybe_show_stripe_button( $template ) {
@@ -157,6 +232,83 @@ final class Stripe_Connect_For_WooCommerce {
 		}
 
 		include STRIPE_CONNECT_WC_INC . 'dashboard-stripe.php';
+	}
+
+
+	public function add_stripe_connect_fields_to_profile( $user ) {
+		// Iterate through add_connect_settings()
+    ?>
+    <h3><?php _e( 'Stripe Connect Settings' ); ?></h3>
+    <table class="form-table">
+		<?php
+			foreach ( $this->add_connect_settings() as $key => $data ) :
+				if ( ! in_array( $data['type'], array( 'text', 'select' ), true ) ) {
+					continue;
+				}
+		?>
+        <tr>
+            <th>
+                <label for="<?php echo esc_attr( $key ); ?>"><?php echo esc_html( $data['title'] ); ?></label>
+            </th>
+            <td>
+                <?php $this->generate_input( $key, $data, $user ); ?>
+            </td>
+        </tr>
+	<?php endforeach; ?>
+    </table>
+    <?php
+	}
+
+	protected function generate_input( $key, $data, $user ) {
+		$value = empty(  $user->{$key} ) ? $data['default'] : $user->{$key};
+
+		if ( 'text' === $data['type'] ) { ?>
+
+		<input type="text" class="regular-text ltr" id="<?php esc_attr_e( $key ); ?>" name="<?php esc_attr_e( $key ); ?>" value="<?php esc_attr_e( $value ); ?>"
+			   title="<?php esc_attr_e( $data['title'] ); ?>">
+
+	   <?php if ( ! empty( $data['description'] ) ) : ?>
+			<p class="description"><?php echo esc_html( $data['description'] ); ?></p>
+		<?php endif; ?>
+
+		<?php
+		}
+		if ( 'select' === $data['type'] ) { ?>
+			<select id="<?php esc_attr_e( $key ); ?>" name="<?php esc_attr_e( $key ); ?>" title="<?php esc_attr_e( $data['title'] ); ?>">
+				<?php foreach ( $data['options'] as $name => $val ) : ?>
+					<option name="<?php esc_attr_e( $name ); ?>" <?php selected( $val, $value, true ); ?>><?php echo esc_html( $val ); ?></option>
+				<?php endforeach; ?>
+			</select>
+			<?php if ( ! empty( $data['description'] ) ) : ?>
+				<p class="description"><?php echo esc_html( $data['description'] ); ?></p>
+		     <?php endif; ?>
+		<?php
+
+		}
+
+	}
+
+	/**
+	 * The save action.
+	 *
+	 * @param $user_id int the ID of the current user.
+	 *
+	 * @return bool Meta ID if the key didn't exist, true on successful update, false on failure.
+	 */
+	function add_stripe_connect_fields_to_usermeta( $user_id ) {
+
+	    // check that the current user have the capability to edit the $user_id
+	    if ( ! current_user_can( 'edit_user', $user_id ) ) {
+	        return false;
+	    }
+
+		foreach ( $this->add_connect_settings() as $key => $data ) {
+			if ( isset( $_POST[ $key ] ) ) {
+				// create/update user meta for the $user_id
+				update_user_meta( $user_id, 'birthday', sanitize_text_field( $_POST[ $key ] ) );
+			}
+		}
+
 	}
 
 	public function maybe_check_oauth() {
