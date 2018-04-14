@@ -1,5 +1,9 @@
 <?php
 
+function scfwc_load_stripe_api() {
+	require_once STRIPE_CONNECT_WC_PATH . 'oauth/vendor/autoload.php';
+}
+
 function scfwc_get_payout_schedule( $user_id = 0 ) {
 
 	$wc_stripe_settings = get_option( 'woocommerce_stripe_settings', array() );
@@ -51,4 +55,16 @@ function scfwc_get_seller_commission( $user_id = 0 ) {
 	$seller_commission = ! empty( $user_commission ) ? $user_commission : $wc_stripe_settings['connect_default_commission'];
 
 	return apply_filters( 'scfwc_get_seller_commission', $seller_commission, $user );
+}
+
+function scfwc_update_user_payout_schedule( $user_id = 0 ) {
+
+	scfwc_load_stripe_api();
+
+	$user = $user_id ? get_user_by( 'id', $user_id ) : wp_get_current_user();
+
+    $account                  = \Stripe\Account::Retrieve( $user->stripe_account_id );
+	$account->payout_schedule = scfwc_get_payout_schedule( $user->ID );
+
+	return $account->save();
 }

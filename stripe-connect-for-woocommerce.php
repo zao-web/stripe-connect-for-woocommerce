@@ -431,13 +431,20 @@ final class Stripe_Connect_For_WooCommerce {
 	        return false;
 	    }
 
+		//
 		foreach ( $this->add_connect_settings() as $key => $data ) {
+
 			if ( isset( $_POST[ $key ] ) ) {
 				// create/update user meta for the $user_id
-				update_user_meta( $user_id, 'birthday', sanitize_text_field( $_POST[ $key ] ) );
+				update_user_meta( $user_id, $key, sanitize_text_field( $_POST[ $key ] ) );
 			}
 		}
 
+		$account_id = get_user_meta( $user_id, 'stripe_account_id', true );
+
+		if ( WCV_Vendors::is_vendor( $user_id ) && ! empty( $account_id ) ) {
+			scfwc_update_user_payout_schedule();
+		}
 	}
 
 	public function maybe_check_oauth() {
