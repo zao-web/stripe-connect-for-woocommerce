@@ -270,7 +270,7 @@ final class Stripe_Connect_For_WooCommerce {
 
 			$args = array_merge( $data, [
 				'destination' => $acct,
-				'amount'      => $commission['total']
+				'amount'      => WC_Stripe_Helper::get_stripe_amount( $commission['total'] )
 				]
 			);
 			$request  = apply_filters( 'stripe_connect_transfer_args', $args, $response, $order );
