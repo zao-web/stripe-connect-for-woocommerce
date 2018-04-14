@@ -261,7 +261,7 @@ final class Stripe_Connect_For_WooCommerce {
 
 		// Loop through each vendor, add 'destination' of Stripe account;, amount of tax + shipping + (subtotal * commission)
 		foreach ( $commissions as $vendor_id => $commission ) {
-			$acct = get_user_meta( $vendor_id, 'stripe_account_id', $account_id );
+			$acct = get_user_meta( $vendor_id, 'stripe_account_id', true );
 
 			if ( empty( $acct ) ) {
 				$order->add_order_note( sprintf( __( 'Attempted to pay out %s to %s, but they do not have their Stripe account connected.' ), $commission['total'], get_user_by( 'id', $vendor_id )->display_name ) );
@@ -270,7 +270,7 @@ final class Stripe_Connect_For_WooCommerce {
 
 			$args = array_merge( $data, [
 				'destination' => $acct,
-				'amount' => $commission['total']
+				'amount'      => $commission['total']
 				]
 			);
 			$request  = apply_filters( 'stripe_connect_transfer_args', $args, $response, $order );
