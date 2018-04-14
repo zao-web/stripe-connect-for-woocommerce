@@ -162,28 +162,67 @@ final class Stripe_Connect_For_WooCommerce {
 		add_filter( 'woocommerce_shipping_packages'     , [ $this, 'add_shipping_package_meta' ] );
 	}
 
+	protected function get_items_list( $contents ) {
+
+		$items_list = [];
+
+		foreach ( $contents as $item ) {
+			$items_list[] = $item['data']->get_name() . ' × ' . $item['quantity'];
+		}
+
+		return implode( ', ', $items_list );
+	}
+
+	public function split_shipping( $items, $total ){
+
+		$last_item_id    = '';
+		$total_remaining = 0;
+
+		$new_shipping_cost = ( $total == 0 ) ? 0 : $total / count( $items );
+
+		foreach ( $items as $item_id => $details ) {
+			$items[ $item_id ][ 'shipping_cost' ] = number_format( $new_shipping_cost, 2 );
+			$last_item_id = $item_id;
+			$total -= number_format( $new_shipping_cost, 2 );
+		}
+
+		// Make sure any uneven splits are still stored correctly for commissions
+		$items[ $last_item_id ][ 'shipping_cost' ] += number_format( $total, 2 );
+		$items[ $last_item_id ][ 'shipping_cost' ]  = number_format( $items[ $last_item_id ][ 'shipping_cost' ], 2 );
+
+		return apply_filters( 'wcv_split_shipping_items', $items );
+
+	}
+
+	public function prepare_items( $items, $total ) {
+		$items = array_map( function( $item ) {
+			return array(
+				'product_id'    => $item['product_id'],
+			 );
+		}, $items );
+
+		return $this->split_shipping( $items, $total ) ;
+	}
+
 	public function add_shipping_package_meta( $packages ) {
 
 		foreach ( $packages as $index => $package ) {
 
 			foreach ( $package['rates'] as $rate_id => $rate ) {
+
 				if ( false !== stristr( $rate_id, 'ups' ) || false !== stristr( $rate_id, 'fedex' ) ) {
 
-					$rate->add_meta_data(
-						'Items',
-						'Insert Test Function here to Run against $packages[contents] to Produce Item X x 5, Item Y x3, etc.'
-					);
+					$total_shipping = $rate->get_cost();
+					$items          = $this->prepare_items( $package['contents'], $total_shipping );
 
-					// Get chosen rate, set product id and shipping cost - shipping cost need to be per item, somehow.
+					$rate->add_meta_data( 'Items', $this->get_items_list( $package['contents'] ) );
+
 					$rate->add_meta_data(
 						'vendor_costs',
 						array(
-							'total_shipping' => $rate->get_cost(),
+							'total_shipping' => $total_shipping,
 							'total_cost'     => $package['contents_cost'],
-							// TODO: Update to use proper function to get cart item key, etc.
-							'items'          => array(
-								'key-1' => array( 'product_id' => 165, 'shipping_cost' => $rate->get_cost() )
-							)
+							'items'          => $items
 						)
 					);
 
