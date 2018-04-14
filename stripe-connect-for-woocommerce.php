@@ -178,14 +178,15 @@ final class Stripe_Connect_For_WooCommerce {
 			'transfer_group' => self::get_order_transfer_number( $order )
 		];
 
-		$commissions = WCV_Vendors::get_vendor_dues_from_order( $order );
+		$commissions  = WCV_Vendors::get_vendor_dues_from_order( $order );
+		$net_proceeds = WC_Stripe_Helper::get_stripe_net( $order );
 
 		// By default, WCV assumes the admin payout to the the 1 key in this method. We employ a different model.
 		if ( isset( $commissions[1] ) ) {
 			unset( $commissions[1] );
 		}
 
-		// Loop through each vendor, add 'destination' of Stripre account;, amount of tax + shipping + (subtotal * commission)
+		// Loop through each vendor, add 'destination' of Stripe account;, amount of tax + shipping + (subtotal * commission)
 		foreach ( $commissions as $vendor_id => $commission ) {
 			$acct = get_user_meta( $vendor_id, 'stripe_account_id', $account_id );
 
@@ -194,8 +195,12 @@ final class Stripe_Connect_For_WooCommerce {
 				continue;
 			}
 
-			$args     = array_merge( $data, [ 'destination' => $acct, 'amount' => $commission['total'] ] );
-			$request  = apply_filters( 'stripe_connect_transfer_args', $data, $response, $order );
+			$args = array_merge( $data, [
+				'destination' => $acct,
+				'amount' => $commission['total']
+				]
+			);
+			$request  = apply_filters( 'stripe_connect_transfer_args', $args, $response, $order );
 			$response = WC_Stripe_API::request( $request, 'transfers' );
 
 			WC_Stripe_Logger::log( var_export( $response, 1 ) );
