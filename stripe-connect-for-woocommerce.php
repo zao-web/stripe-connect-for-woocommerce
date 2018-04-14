@@ -148,14 +148,63 @@ final class Stripe_Connect_For_WooCommerce {
 	 * @since  0.1.0
 	 */
 	public function hooks() {
-		add_action( 'init'                            , [ $this, 'init' ], 0 );
-		add_action( 'template_redirect'               , [ $this, 'maybe_check_oauth' ] );
-		add_action( 'woocommerce_before_template_part', [ $this, 'maybe_show_stripe_button' ] );
-		add_filter( 'wc_stripe_settings'              , [ $this, 'add_connect_settings' ] );
-		add_action( 'edit_user_profile'               , [ $this, 'add_stripe_connect_fields_to_profile' ] );
-		add_action( 'show_user_profile'               , [ $this, 'add_stripe_connect_fields_to_profile' ] );
-		add_action( 'personal_options_update'         , [ $this, 'add_stripe_connect_fields_to_usermeta' ] );
-		add_action( 'edit_user_profile_update'        , [ $this, 'add_stripe_connect_fields_to_usermeta' ] );
+		add_action( 'init'                              , [ $this, 'init' ], 0 );
+		add_action( 'template_redirect'                 , [ $this, 'maybe_check_oauth' ] );
+		add_action( 'woocommerce_before_template_part'  , [ $this, 'maybe_show_stripe_button' ] );
+		add_filter( 'wc_stripe_settings'                , [ $this, 'add_connect_settings' ] );
+		add_action( 'edit_user_profile'                 , [ $this, 'add_stripe_connect_fields_to_profile' ] );
+		add_action( 'show_user_profile'                 , [ $this, 'add_stripe_connect_fields_to_profile' ] );
+		add_action( 'personal_options_update'           , [ $this, 'add_stripe_connect_fields_to_usermeta' ] );
+		add_action( 'edit_user_profile_update'          , [ $this, 'add_stripe_connect_fields_to_usermeta' ] );
+		add_filter( 'wc_stripe_generate_payment_request', [ $this, 'add_transfer_group_to_stripe_charge' ], 10, 3 );
+		add_action( 'wc_gateway_stripe_process_response', [ $this, 'create_payouts_to_each_seller' ]      , 10, 2 );
+		add_filter( 'wcv_commission_rate_percent'       , [ $this, 'filter_wcv_commission' ]              , 10, 2 );
+	}
+
+	public function filter_wcv_commission( $commission, $product_id ) {
+		return scfwc_get_seller_commission( WCV_Vendors::get_vendor_from_product( $product_id ) );
+	}
+
+	public function add_transfer_group_to_stripe_charge( $post_data, $order, $prepared_source ) {
+		$post_data['transfer_group'] = self::get_order_transfer_number( $order );
+
+		return $post_data;
+	}
+
+	public function create_payouts_to_each_seller( $response, $order ) {
+
+		$data = [
+			'currency'       => strtoupper( get_woocommerce_currency() ),
+			'transfer_group' => self::get_order_transfer_number( $order )
+		];
+
+		$commissions = WCV_Vendors::get_vendor_dues_from_order( $order );
+
+		// By default, WCV assumes the admin payout to the the 1 key in this method. We employ a different model.
+		if ( isset( $commissions[1] ) ) {
+			unset( $commissions[1] );
+		}
+
+		// Loop through each vendor, add 'destination' of Stripre account;, amount of tax + shipping + (subtotal * commission)
+		foreach ( $commissions as $vendor_id => $commission ) {
+			$acct = get_user_meta( $vendor_id, 'stripe_account_id', $account_id );
+
+			if ( empty( $acct ) ) {
+				$order->add_order_note( sprintf( __( 'Attempted to pay out %s to %s, but they do not have their Stripe account connected.' ), $commission['total'], get_user_by( 'id', $vendor_id )->display_name ) );
+				continue;
+			}
+
+			$args     = array_merge( $data, [ 'destination' => $acct, 'amount' => $commission['total'] ] );
+			$request  = apply_filters( 'stripe_connect_transfer_args', $data, $response, $order );
+			$response = WC_Stripe_API::request( $request, 'transfers' );
+
+			WC_Stripe_Logger::log( var_export( $response, 1 ) );
+		}
+
+	}
+
+	public static function get_order_transfer_number( $order ) {
+		return apply_filters( 'stripe_connect_transfer_group', sprintf( __( 'Order #%s' ), $order->get_id() ) );
 	}
 
 	public function add_connect_settings( $settings = array() ) {

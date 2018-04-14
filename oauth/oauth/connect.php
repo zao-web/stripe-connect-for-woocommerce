@@ -32,7 +32,6 @@ if (isset($_GET['code'])){
     // You could retrieve the API key with `$accessToken->getToken()`, but it's better to authenticate using the Stripe-account header (below)
 
     // Retrieve the account ID to be used for authentication: https://stripe.com/docs/connect/authentication
-    // TODO: Save this account ID to your database for later use.
     $account_id = $provider->getResourceOwner($accessToken)->getId();
 
 	update_user_meta( get_current_user_id(), 'stripe_account_id', $account_id );
