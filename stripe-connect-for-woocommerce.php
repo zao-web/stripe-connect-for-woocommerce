@@ -247,8 +247,9 @@ final class Stripe_Connect_For_WooCommerce {
 	public function create_payouts_to_each_seller( $response, $order ) {
 
 		$data = [
-			'currency'       => strtoupper( get_woocommerce_currency() ),
-			'transfer_group' => self::get_order_transfer_number( $order )
+			'currency'           => strtoupper( get_woocommerce_currency() ),
+			'transfer_group'     => self::get_order_transfer_number( $order ),
+			'source_transaction' => $response->id
 		];
 
 		$commissions  = WCV_Vendors::get_vendor_dues_from_order( $order );
@@ -273,13 +274,11 @@ final class Stripe_Connect_For_WooCommerce {
 				'amount'      => WC_Stripe_Helper::get_stripe_amount( $commission['total'] )
 				]
 			);
-			$request  = apply_filters( 'stripe_connect_transfer_args', $args, $response, $order );
 
-			$response = WC_Stripe_API::request( $request, 'transfers' );
+			$request   = apply_filters( 'stripe_connect_transfer_args', $args, $response, $order );
+			$_response = WC_Stripe_API::request( $request, 'transfers' );
 
-			$order->add_order_note( var_export( $response, 1 ) );
-
-			WC_Stripe_Logger::log( var_export( $response, 1 ) );
+			$order->add_order_note( var_export( $_response, 1 ) );
 		}
 
 	}

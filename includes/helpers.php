@@ -15,7 +15,7 @@ function scfwc_get_payout_schedule( $user_id = 0 ) {
 			continue;
 		}
 
-		$_key = str_replace( $prefix, '', $key );
+		$_key = strtr( $key, array( $prefix => '' ) );
 
 		$user_settings = $user->payout_schedule;
 
@@ -25,6 +25,18 @@ function scfwc_get_payout_schedule( $user_id = 0 ) {
 			$payout_schedule[ $_key ] = $value;
 		}
 
+	}
+
+	if ( isset( $payout_schedule['interval'] ) && 'daily' === $payout_schedule['interval'] ) {
+		unset( $payout_schedule['monthly_anchor'], $payout_schedule['weekly_anchor'] );
+	}
+
+	if ( isset( $payout_schedule['interval'] ) && 'weekly' === $payout_schedule['interval'] ) {
+		unset( $payout_schedule['monthly_anchor'] );
+	}
+
+	if ( isset( $payout_schedule['interval'] ) && 'monthly' === $payout_schedule['interval'] ) {
+		unset( $payout_schedule['weekly_anchor'] );
 	}
 
 	return apply_filters( 'scfwc_get_payout_schedule', $payout_schedule, $user );
