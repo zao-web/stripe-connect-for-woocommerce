@@ -1,9 +1,9 @@
 <?php
 require_once STRIPE_CONNECT_WC_PATH . 'oauth/vendor/autoload.php';
 
-define("CLIENT_ID"   , "ca_Bg4rkEibrQjMy1TGSuJWNvFCeWMc0Fn2"); // Your client ID: https://dashboard.stripe.com/account/applications/settings
-define("REDIRECT_URL", "https://chamfr.local/dashboard"); // https://dashboard.stripe.com/account/applications/settings
-define( "SECRET_KEY", 'sk_test_zJMYqEr8cR3BquoYOI0w8SMc' );
+define( "CLIENT_ID"   , "ca_Bg4rkEibrQjMy1TGSuJWNvFCeWMc0Fn2"); // Your client ID: https://dashboard.stripe.com/account/applications/settings
+define( "REDIRECT_URL", "https://chamfr.local/dashboard"); // https://dashboard.stripe.com/account/applications/settings
+define( "SECRET_KEY", WC_Stripe_API::get_secret_key() );
 
 \Stripe\Stripe::setApiKey(SECRET_KEY);
 
@@ -34,11 +34,8 @@ if (isset($_GET['code'])){
     // Retrieve the account ID to be used for authentication: https://stripe.com/docs/connect/authentication
     $account_id = $provider->getResourceOwner($accessToken)->getId();
 
-	update_user_meta( get_current_user_id(), 'stripe_account_id', $account_id );
-
-	$token = $oauth->getAccessToken( $_GET['code'] );
-
-	update_user_meta( get_current_user_id(), '_stripe_connect_access_key', $token );
+	update_user_meta( get_current_user_id(), 'stripe_account_id'         , $account_id );
+	update_user_meta( get_current_user_id(), '_stripe_connect_access_key', $accessToken );
 
     // Retrieve the account from Stripe: https://stripe.com/docs/api/php#retrieve_account
     $account = \Stripe\Account::Retrieve($account_id);

@@ -159,6 +159,40 @@ final class Stripe_Connect_For_WooCommerce {
 		add_filter( 'wc_stripe_generate_payment_request', [ $this, 'add_transfer_group_to_stripe_charge' ], 10, 3 );
 		add_action( 'wc_gateway_stripe_process_response', [ $this, 'create_payouts_to_each_seller' ]      , 10, 2 );
 		add_filter( 'wcv_commission_rate_percent'       , [ $this, 'filter_wcv_commission' ]              , 10, 2 );
+		add_filter( 'woocommerce_shipping_packages'     , [ $this, 'add_shipping_package_meta' ] );
+	}
+
+	public function add_shipping_package_meta( $packages ) {
+
+		foreach ( $packages as $index => $package ) {
+
+			foreach ( $package['rates'] as $rate_id => $rate ) {
+				if ( false !== stristr( $rate_id, 'ups' ) || false !== stristr( $rate_id, 'fedex' ) ) {
+
+					$rate->add_meta_data(
+						'Items',
+						'Insert Test Function here to Run against $packages[contents] to Produce Item X x 5, Item Y x3, etc.'
+					);
+
+					// Get chosen rate, set product id and shipping cost - shipping cost need to be per item, somehow.
+					$rate->add_meta_data(
+						'vendor_costs',
+						array(
+							'total_shipping' => $rate->get_cost(),
+							'total_cost'     => $package['contents_cost'],
+							// TODO: Update to use proper function to get cart item key, etc.
+							'items'          => array(
+								'key-1' => array( 'product_id' => 165, 'shipping_cost' => $rate->get_cost() )
+							)
+						)
+					);
+
+					$rate->add_meta_data( 'vendor_id', $package['vendor_id'] );
+				}
+			}
+		}
+
+		return $packages;
 	}
 
 	public function filter_wcv_commission( $commission, $product_id ) {
@@ -201,7 +235,10 @@ final class Stripe_Connect_For_WooCommerce {
 				]
 			);
 			$request  = apply_filters( 'stripe_connect_transfer_args', $args, $response, $order );
+
 			$response = WC_Stripe_API::request( $request, 'transfers' );
+
+			$order->add_order_note( var_export( $response, 1 ) );
 
 			WC_Stripe_Logger::log( var_export( $response, 1 ) );
 		}
