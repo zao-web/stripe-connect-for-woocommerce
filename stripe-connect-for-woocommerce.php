@@ -227,6 +227,7 @@ final class Stripe_Connect_For_WooCommerce {
 					);
 
 					$rate->add_meta_data( 'vendor_id', $package['vendor_id'] );
+
 				}
 			}
 		}
@@ -254,11 +255,15 @@ final class Stripe_Connect_For_WooCommerce {
 
 		$commissions  = WCV_Vendors::get_vendor_dues_from_order( $order );
 		$net_proceeds = WC_Stripe_Helper::get_stripe_net( $order );
+		$stripe_fee   = WC_Stripe_Helper::get_stripe_fee( $order );
+
 
 		// By default, WCV assumes the admin payout to the the 1 key in this method. We employ a different model.
 		if ( isset( $commissions[1] ) ) {
 			unset( $commissions[1] );
 		}
+
+		$split_fee = round( $stripe_fee / count( $commissions ), 2 );
 
 		// Loop through each vendor, add 'destination' of Stripe account;, amount of tax + shipping + (subtotal * commission)
 		foreach ( $commissions as $vendor_id => $commission ) {
@@ -267,6 +272,17 @@ final class Stripe_Connect_For_WooCommerce {
 			if ( empty( $acct ) ) {
 				$order->add_order_note( sprintf( __( 'Attempted to pay out %s to %s, but they do not have their Stripe account connected.' ), $commission['total'], get_user_by( 'id', $vendor_id )->display_name ) );
 				continue;
+			}
+
+			// Handle splitting the Stripe fee between each commission
+			$fee         = $stripe_fee >= $split_fee ? $split_fee : $stripe_fee;
+			$total       = $commission['total'] - $fee;
+			$stripe_fee -= $split_fee;
+
+			$monthly_fee = $this->maybe_process_monthly_fee( $vendor_id, $commission['total'] );
+
+			if ( $monthly_fee ) {
+				$total -= $monthly_fee;
 			}
 
 			$args = array_merge( $data, [
@@ -278,9 +294,42 @@ final class Stripe_Connect_For_WooCommerce {
 			$request   = apply_filters( 'stripe_connect_transfer_args', $args, $response, $order );
 			$_response = WC_Stripe_API::request( $request, 'transfers' );
 
-			$order->add_order_note( var_export( $_response, 1 ) );
+			// TODO: Determine if we have a better way of determining success here.
+			if ( $_response->id ) {
+
+				if ( $monthly_fee ) {
+					$order->add_order_note( sprintf( __( 'Paid monthly fee of %s out of the commission (%s) to %s.' ), $monthly_fee, $total, get_user_by( 'id', $vendor_id )->display_name ) );
+					update_user_meta( $vendor_id, date( 'm-Y' ) . '-chamfr-fee', array( 'transfer_id' => $_response->id, 'fee' => $monthly_fee ) );
+				}
+
+				$order->add_order_note( sprintf( __( 'Successfully transferred (%s) to %s. Transfer ID#: %s' ), $total, get_user_by( 'id', $vendor_id )->display_name, $_response->id ) );
+			}
+
 		}
 
+	}
+
+	/**
+	 * If a vendor has not yet had their monthly membership fee 
+	 *
+	 * @param [type] $vendor_id
+	 * @return void
+	 */
+	public function maybe_process_monthly_fee( $vendor_id, $total ) {
+		$monthly_fee = scfwc_user_monthly_fee( $vendor_id );
+		
+		if ( $monthly_fee >= $total ) {
+			return false;
+		}
+
+		$month_key = date( 'm-Y' ) . '-chamfr-fee';
+		$has_processed_monthly_fee = get_user_meta( $vendor_id, $month_key, true );
+
+		if ( ! empty( $has_processed_monthly_fee ) ) {
+			return false;
+		}
+
+		return $monthly_fee;
 	}
 
 	public static function get_order_transfer_number( $order ) {
@@ -349,6 +398,15 @@ final class Stripe_Connect_For_WooCommerce {
 			'type'        => 'text',
 			'description' => __( 'This is the default amount sellers will receive, plus taxes and shipping.', 'woocommerce-gateway-stripe' ),
 			'default'     => '85',
+			'desc_tip'    => true,
+		);
+
+		$settings['monthly_fee'] = array(
+			'title'       => __( 'Monthly Fee', 'woocommerce-gateway-stripe' ),
+			'label'       => __( 'Default Monthly Fee', 'woocommerce-gateway-stripe' ),
+			'type'        => 'text',
+			'description' => __( 'This is the default monthly fee that sellers are charged in any month they have a payout..', 'woocommerce-gateway-stripe' ),
+			'default'     => '4.25',
 			'desc_tip'    => true,
 		);
 

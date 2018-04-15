@@ -68,3 +68,15 @@ function scfwc_update_user_payout_schedule( $user_id = 0 ) {
 
 	return $account->save();
 }
+
+function scfwc_user_monthly_fee( $user_id = 0 ) {
+	$wc_stripe_settings = get_option( 'woocommerce_stripe_settings', array() );
+
+	$user = $user_id ? get_user_by( 'id', $user_id ) : wp_get_current_user();
+	$monthly_fee    = $user->monthly_fee;
+
+	$monthly_fee = ! empty( $monthly_fee ) ? $monthly_fee : $wc_stripe_settings['monthly_fee'];
+
+	return apply_filters( 'scfwc_user_monthly_fee', $seller_commission, $user );
+
+}
