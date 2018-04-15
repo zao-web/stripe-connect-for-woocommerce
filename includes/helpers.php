@@ -77,6 +77,6 @@ function scfwc_user_monthly_fee( $user_id = 0 ) {
 
 	$monthly_fee = ! empty( $monthly_fee ) ? $monthly_fee : $wc_stripe_settings['monthly_fee'];
 
-	return apply_filters( 'scfwc_user_monthly_fee', $seller_commission, $user );
+	return apply_filters( 'scfwc_user_monthly_fee', $monthly_fee, $user );
 
 }
