@@ -2,6 +2,7 @@
 
 function scfwc_load_stripe_api() {
 	require_once STRIPE_CONNECT_WC_PATH . 'oauth/vendor/autoload.php';
+	\Stripe\Stripe::setApiKey(WC_Stripe_API::get_secret_key());
 }
 
 function scfwc_get_payout_schedule( $user_id = 0 ) {
