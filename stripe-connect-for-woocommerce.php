@@ -501,7 +501,7 @@ final class Stripe_Connect_For_WooCommerce {
 		$account_id = get_user_meta( $user_id, 'stripe_account_id', true );
 
 		if ( WCV_Vendors::is_vendor( $user_id ) && ! empty( $account_id ) ) {
-			scfwc_update_user_payout_schedule();
+			scfwc_update_user_payout_schedule( $user_id );
 		}
 	}
 
