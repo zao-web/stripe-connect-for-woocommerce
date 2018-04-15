@@ -160,6 +160,44 @@ final class Stripe_Connect_For_WooCommerce {
 		add_action( 'wc_gateway_stripe_process_response', [ $this, 'create_payouts_to_each_seller' ]      , 10, 2 );
 		add_filter( 'wcv_commission_rate_percent'       , [ $this, 'filter_wcv_commission' ]              , 10, 2 );
 		add_filter( 'woocommerce_shipping_packages'     , [ $this, 'add_shipping_package_meta' ] );
+		add_filter( 'wcv_vendor_dues'                   , [ $this, 'add_shipping_tax_to_commissions' ], 10, 3 );
+	}
+
+	/**
+	 * Adds taxes generated from TaxJar for shipping rates to commissions prior to insertion.
+	 *
+	 * @param Array    $receiver Array of commission receivers
+	 * @param WC_Order $order    WooCommerce Order Object.
+	 * @param Bool     $group    Whether or not to group vendor products into one array or several.
+	 * @return void
+	 */
+	public function add_shipping_tax_to_commissions( $receiver, $order, $group ) {
+		$shipping = $order->get_items( 'shipping' );
+		$rates    = [];
+
+		foreach ( $shipping as $items ) {
+			$rates[ $items->get_meta( 'vendor_id' ) ] = $items->get_total_tax();
+		}
+
+		foreach ( $receiver as $vendor_id => $data ) {
+
+			if ( ! isset( $rates[ $vendor_id ] ) || ! $rates[ $vendor_id ] ) {
+				continue;
+			}
+
+			// We've now know we have taxes on shipping - now we just need to add to either the grouped tax rate, or the first of the non-grouped tax rates.
+			if ( $group ) {
+				 $receiver[ $vendor_id ]['tax'] += $rates[ $vendor_id ];
+				 continue;
+			} else {
+				foreach ( $data as $product_id => $contents ) {
+					$receiver[ $vendor_id ][$product_id]['tax'] += $rates[ $vendor_id ];
+					continue 2;
+				}
+			}
+		}
+
+		return $receiver;
 	}
 
 	protected function get_items_list( $contents ) {
@@ -310,14 +348,14 @@ final class Stripe_Connect_For_WooCommerce {
 	}
 
 	/**
-	 * If a vendor has not yet had their monthly membership fee 
+	 * If a vendor has not yet had their monthly membership fee
 	 *
 	 * @param [type] $vendor_id
 	 * @return void
 	 */
 	public function maybe_process_monthly_fee( $vendor_id, $total ) {
 		$monthly_fee = scfwc_user_monthly_fee( $vendor_id );
-		
+
 		if ( $monthly_fee >= $total ) {
 			return false;
 		}
@@ -479,7 +517,7 @@ final class Stripe_Connect_For_WooCommerce {
 	 * The save action.
 	 *
 	 * @param $user_id int the ID of the current user.
-	 *
+	 * @todo I don't think this is quite functional yet.
 	 * @return bool Meta ID if the key didn't exist, true on successful update, false on failure.
 	 */
 	function add_stripe_connect_fields_to_usermeta( $user_id ) {

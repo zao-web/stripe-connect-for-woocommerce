@@ -64,6 +64,8 @@ function scfwc_update_user_payout_schedule( $user_id = 0 ) {
 
 	$user = $user_id ? get_user_by( 'id', $user_id ) : wp_get_current_user();
 
+	error_log( $user->stripe_account_id );
+
     $account                  = \Stripe\Account::Retrieve( $user->stripe_account_id );
 	$account->payout_schedule = scfwc_get_payout_schedule( $user->ID );
 
