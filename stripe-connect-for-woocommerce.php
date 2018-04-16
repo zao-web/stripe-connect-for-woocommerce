@@ -161,6 +161,7 @@ final class Stripe_Connect_For_WooCommerce {
 		add_filter( 'wcv_commission_rate_percent'       , [ $this, 'filter_wcv_commission' ]              , 10, 2 );
 		add_filter( 'woocommerce_shipping_packages'     , [ $this, 'add_shipping_package_meta' ] );
 		add_filter( 'wcv_vendor_dues'                   , [ $this, 'add_shipping_tax_to_commissions' ], 10, 3 );
+		add_action( 'init'                              , 'scfwc_maybe_charge_monthly_fee' );
 	}
 
 	/**
@@ -440,11 +441,20 @@ final class Stripe_Connect_For_WooCommerce {
 		);
 
 		$settings['monthly_fee'] = array(
-			'title'       => __( 'Monthly Fee', 'woocommerce-gateway-stripe' ),
+			'title'       => __( 'Monthly Fee (Active)', 'woocommerce-gateway-stripe' ),
 			'label'       => __( 'Default Monthly Fee', 'woocommerce-gateway-stripe' ),
 			'type'        => 'text',
-			'description' => __( 'This is the default monthly fee that sellers are charged in any month they have a payout..', 'woocommerce-gateway-stripe' ),
+			'description' => __( 'This is the default monthly fee that sellers are charged in any month they have a payout.', 'woocommerce-gateway-stripe' ),
 			'default'     => '4.25',
+			'desc_tip'    => true,
+		);
+
+		$settings['passive_monthly_fee'] = array(
+			'title'       => __( 'Monthly Fee (Global)', 'woocommerce-gateway-stripe' ),
+			'label'       => __( 'Default Monthly Fee', 'woocommerce-gateway-stripe' ),
+			'type'        => 'text',
+			'description' => __( 'This is the default monthly fee that sellers are charged regardless of any payout.', 'woocommerce-gateway-stripe' ),
+			'default'     => '99.00',
 			'desc_tip'    => true,
 		);
 

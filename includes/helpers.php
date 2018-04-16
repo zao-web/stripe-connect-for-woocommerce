@@ -78,7 +78,18 @@ function scfwc_user_monthly_fee( $user_id = 0 ) {
 
 	$monthly_fee = ! empty( $monthly_fee ) ? $monthly_fee : $wc_stripe_settings['monthly_fee'];
 
-	return apply_filters( 'scfwc_user_monthly_fee', $monthly_fee, $user );
+	return floatval( apply_filters( 'scfwc_user_monthly_fee', $monthly_fee, $user ) );
+}
+
+function scfwc_user_global_monthly_fee( $user_id = 0 ) {
+	$wc_stripe_settings = get_option( 'woocommerce_stripe_settings', array() );
+
+	$user = $user_id ? get_user_by( 'id', $user_id ) : wp_get_current_user();
+	$monthly_fee    = $user->passive_monthly_fee;
+
+	$monthly_fee = ! empty( $monthly_fee ) ? $monthly_fee : $wc_stripe_settings['passive_monthly_fee'];
+
+	return floatval( apply_filters( 'scfwc_user_global_monthly_fee', $monthly_fee, $user ) );
 }
 
 function scfwc_get_login_link( $user_id = 0 ) {
@@ -114,7 +125,11 @@ function scfwc_get_authorize_url ( $user_id = 0 ) {
 	return add_query_arg( $args, $endpoint );
 }
 
-function scfwc_create_customer( $user_id = 0 ) {
+function scfwc_maybe_charge_monthly_fee( $user_id = 0 ) {
+	if ( ! is_user_logged_in() ) {
+		return false;
+	}
+
 	$user = $user_id ? get_user_by( 'id', $user_id ) : wp_get_current_user();
 
 	// Retrieve account, source ID, associate to customer, save, and create subscription
@@ -122,23 +137,32 @@ function scfwc_create_customer( $user_id = 0 ) {
 		return false;
 	}
 
-	$account   = \Stripe\Account::retrieve( $user->stripe_account_id );
-	$source_id = $account->external_accounts->data[0]->id;
+	if ( ! WCV_Vendors::is_vendor( $user_id ) ) {
+		return false;
+	}
 
-	// Create Stripe Customer for seller, in order to create their recurring subscription
-	$new_stripe_customer = new WC_Stripe_Customer( get_current_user_id() );
-	$customer_id         = $new_stripe_customer->create_customer();
+	$global_fee = scfwc_user_global_monthly_fee( $user->ID );
 
-	$customer = \Stripe\Customer::retrieve( $customer_id );
-	$customer->source = $source_id;
-	$customer->save();
+	// Chamfr may set these to be free
+	if ( $global_fee < 0.01 ) {
+		return true;
+	}
 
-	return \Stripe\Subscription::create( array(
-	"customer" => $customer_id,
-	"items" => array(
-		array(
-		"plan" => CHAMFR_SERVICE_PLAN_ID,
-		"quantity" => 1,
-		),
-	) ) );
+	$month_key                 = date( 'm-Y' ) . '-chamfr-global-fee';
+	$has_processed_monthly_fee = get_user_meta( $user->ID, $month_key, true );
+
+	if ( $has_processed_monthly_fee ) {
+		return true;
+	}
+
+	$charge = \Stripe\Charge::create( array(
+		"amount"   => WC_Stripe_Helper::get_stripe_amount( $global_fee ),
+		"currency" => "usd",
+		"source"   => $user->stripe_account_id,
+		'description' => 'Monthly fee of $' . $global_fee . ' for ' . $user->display_name
+		) );
+
+	update_user_meta( $user->ID, $month_key, $charge->id );
+
+	return true;
 }

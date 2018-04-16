@@ -31,8 +31,6 @@ if (isset($_GET['code'])){
 	update_user_meta( get_current_user_id(), 'stripe_account_id'         , $account_id );
   update_user_meta( get_current_user_id(), '_stripe_connect_access_key', $accessToken );
 
-  scfwc_create_customer();
-
   scfwc_update_user_payout_schedule();
 
 	wc_add_notice(__( 'Success! Your account has been connected' ) );
