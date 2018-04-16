@@ -64,8 +64,6 @@ function scfwc_update_user_payout_schedule( $user_id = 0 ) {
 
 	$user = $user_id ? get_user_by( 'id', $user_id ) : wp_get_current_user();
 
-	error_log( $user->stripe_account_id );
-
     $account                  = \Stripe\Account::Retrieve( $user->stripe_account_id );
 	$account->payout_schedule = scfwc_get_payout_schedule( $user->ID );
 
@@ -81,5 +79,66 @@ function scfwc_user_monthly_fee( $user_id = 0 ) {
 	$monthly_fee = ! empty( $monthly_fee ) ? $monthly_fee : $wc_stripe_settings['monthly_fee'];
 
 	return apply_filters( 'scfwc_user_monthly_fee', $monthly_fee, $user );
+}
 
+function scfwc_get_login_link( $user_id = 0 ) {
+
+	scfwc_load_stripe_api();
+
+	$link = '';
+
+	$user = $user_id ? get_user_by( 'id', $user_id ) : wp_get_current_user();
+
+	if ( empty( $user->stripe_account_id ) ) {
+		return $link;
+	}
+
+	$account = \Stripe\Account::retrieve( $user->stripe_account_id );
+	$link = $account->login_links->create();
+
+	return $link->url;
+}
+
+function scfwc_get_authorize_url ( $user_id = 0 ) {
+	$user = $user_id ? get_user_by( 'id', $user_id ) : wp_get_current_user();
+
+	$endpoint = 'https://connect.stripe.com/express/oauth/authorize';
+
+	$args = array(
+		'redirect_uri' => home_url( 'dashboard' ),
+		'client_id'    => CLIENT_ID,
+		'state'        => wp_create_nonce( 'stripe-connect' ),
+		'stripe_user[email]' => $user->user_email
+	);
+
+	return add_query_arg( $args, $endpoint );
+}
+
+function scfwc_create_customer( $user_id = 0 ) {
+	$user = $user_id ? get_user_by( 'id', $user_id ) : wp_get_current_user();
+
+	// Retrieve account, source ID, associate to customer, save, and create subscription
+	if ( empty( $user->stripe_account_id ) ) {
+		return false;
+	}
+
+	$account   = \Stripe\Account::retrieve( $user->stripe_account_id );
+	$source_id = $account->external_accounts->data[0]->id;
+
+	// Create Stripe Customer for seller, in order to create their recurring subscription
+	$new_stripe_customer = new WC_Stripe_Customer( get_current_user_id() );
+	$customer_id         = $new_stripe_customer->create_customer();
+
+	$customer = \Stripe\Customer::retrieve( $customer_id );
+	$customer->source = $source_id;
+	$customer->save();
+
+	return \Stripe\Subscription::create( array(
+	"customer" => $customer_id,
+	"items" => array(
+		array(
+		"plan" => CHAMFR_SERVICE_PLAN_ID,
+		"quantity" => 1,
+		),
+	) ) );
 }

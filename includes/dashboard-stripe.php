@@ -177,7 +177,7 @@ $account_id = get_user_meta( get_current_user_id(), 'stripe_account_id', true );
 if ( empty( $account_id ) ) :
 
 ?>
-<p style="margin-top: 1em;"><a class="stripe-connect light-blue" href="https://connect.stripe.com/express/oauth/authorize?redirect_uri=<?php echo home_url( 'dashboard' ); ?>&client_id=ca_Bg4rkEibrQjMy1TGSuJWNvFCeWMc0Fn2&state=q239804rwqdc"><span>Connect to Stripe</span></a></p>
+<p style="margin-top: 1em;"><a class="stripe-connect light-blue" href="<?php echo esc_url( scfwc_get_authorize_url() );?>"><span>Connect to Stripe</span></a></p>
 
 <?php elseif ( ! empty( $_GET ) ) : ?>
 	<p style="margin-top: 1em;"><em>Your Stripe account has been connected.</em></p>
