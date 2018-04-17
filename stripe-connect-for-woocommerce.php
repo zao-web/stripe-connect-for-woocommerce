@@ -161,6 +161,7 @@ final class Stripe_Connect_For_WooCommerce {
 		add_filter( 'wcv_commission_rate_percent'       , [ $this, 'filter_wcv_commission' ]              , 10, 2 );
 		add_filter( 'woocommerce_shipping_packages'     , [ $this, 'add_shipping_package_meta' ] );
 		add_filter( 'wcv_vendor_dues'                   , [ $this, 'add_shipping_tax_to_commissions' ], 10, 3 );
+		// TODO: get this working so that the commissions match the actual payouts.
 		// add_filter( 'wcv_vendor_dues'                   , [ $this, 'maybe_modify_totals' ]            , 20, 3 );
 		add_action( 'init'                              , 'scfwc_maybe_charge_monthly_fee' );
 	}
@@ -238,10 +239,10 @@ final class Stripe_Connect_For_WooCommerce {
 	protected function prepare_commission( $vendor_id, $order, $commission, $log = true ) {
 
 		$log = [
-			'Base seller payout for ' . get_user_by( 'id', $vendor_id )->display_name . ' for this order was' . $commission['commission']
+			'Base seller payout for ' . get_user_by( 'id', $vendor_id )->display_name . ' for this order was ' . $commission['commission']
 		];
 
-		$log[] = 'Subtotal = Base plus tax & shipping is' . ( $commission['commission'] + $commission['tax'] + $commission['shipping'] );
+		$log[] = 'Subtotal = Base plus tax & shipping is ' . round( $commission['commission'] + $commission['tax'] + $commission['shipping'], 2 );
 
 		$total       =  round( $commission['commission'] + $commission['tax'] + $commission['shipping'], 2 );
 		$stripe_fee  = $this->get_stripe_fee_portion( $vendor_id, $order, $commission );
@@ -253,8 +254,8 @@ final class Stripe_Connect_For_WooCommerce {
 		$monthly_fee = $this->maybe_process_monthly_fee( $vendor_id, $commission['total'] );
 
 		if ( $monthly_fee ) {
-			$total -= $monthly_fee;
 			$log[] = 'Monthly fee of  ' . $monthly_fee . ' was due for seller, resulting in a total transfer of ' . round( $total - $monthly_fee, 2 );
+			$total -= $monthly_fee;
 		} else {
 			$log[] = 'No monthly fee was due for seller, resulting in a total transfer of ' . $total;
 		}
