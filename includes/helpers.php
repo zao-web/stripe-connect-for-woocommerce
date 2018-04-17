@@ -137,7 +137,7 @@ function scfwc_maybe_charge_monthly_fee( $user_id = 0 ) {
 		return false;
 	}
 
-	if ( ! WCV_Vendors::is_vendor( $user_id ) ) {
+	if ( ! WCV_Vendors::is_vendor( $user->ID ) ) {
 		return false;
 	}
 
