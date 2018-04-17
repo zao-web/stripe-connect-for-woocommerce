@@ -161,6 +161,7 @@ final class Stripe_Connect_For_WooCommerce {
 		add_filter( 'wcv_commission_rate_percent'       , [ $this, 'filter_wcv_commission' ]              , 10, 2 );
 		add_filter( 'woocommerce_shipping_packages'     , [ $this, 'add_shipping_package_meta' ] );
 		add_filter( 'wcv_vendor_dues'                   , [ $this, 'add_shipping_tax_to_commissions' ], 10, 3 );
+		add_filter( 'wcv_vendor_dues'                   , [ $this, 'maybe_modify_totals' ]            , 20, 3 );
 		add_action( 'init'                              , 'scfwc_maybe_charge_monthly_fee' );
 	}
 
@@ -199,6 +200,105 @@ final class Stripe_Connect_For_WooCommerce {
 		}
 
 		return $receiver;
+	}
+
+	/**
+	 * Adds taxes generated from TaxJar for shipping rates to commissions prior to insertion.
+	 *
+	 * @param Array    $receiver Array of commission receivers
+	 * @param WC_Order $order    WooCommerce Order Object.
+	 * @param Bool     $group    Whether or not to group vendor products into one array or several.
+	 * @return void
+	 */
+	public function maybe_modify_totals( $receiver, $order, $group ) {
+
+		$is_running_completed  = doing_action( 'woocommerce_order_status_completed' );
+		$is_running_processing = doing_action( 'woocommerce_order_status_processing' );
+
+		// Only filter when inserting completed commissions on hook.
+		if ( ! ( $is_running_completed || $is_running_processing ) ) {
+			return $receiver;
+		}
+
+		foreach ( $receiver as $vendor_id => $data ) {
+			$receiver[ $vendor_id ][ 'commission' ] = $this->prepare_commission( $vendor_id, $order, $data, false );
+		}
+
+		return $receiver;
+	}
+
+	/**
+	 * Returns Vendor Commission
+	 *
+	 * The commission should be their percentage of the NET Stripe payout on their items, plus taxes + shipping, minus monthly fees.
+	 *
+	 * @param [type] $vendor_id
+	 * @param [type] $order
+	 * @return void
+	 */
+	protected function prepare_commission( $vendor_id, $order, $commission, $log = true ) {
+
+		$log = [
+			'Base seller payout for ' . get_user_by( 'id', $vendor_id )->display_name . ' for this order was' . $commission['commission']
+		];
+
+		$log[] = 'Subtotal = Base plus tax & shipping is' . $commission['commission'] + $commission['tax'] + $commission['shipping'];
+
+		$total       =  $commission['commission'] + $commission['tax'] + $commission['shipping'];
+		$stripe_fee  = $this->get_stripe_fee_portion( $vendor_id, $order, $commission );
+
+		$log[] = 'Total = subtotal of' . $total . ' less Stripe fee portion of ' . $stripe_fee .' is ' . ( $total - $stripe_fee );
+
+		$total =- $stripe_fee;
+
+		$monthly_fee = $this->maybe_process_monthly_fee( $vendor_id, $commission['total'] );
+
+		if ( $monthly_fee ) {
+			$total -= $monthly_fee;
+			$log[] = 'Monthly fee of  ' . $monthly_fee . ' was due for seller, resulting in a total transfer of ' . ( $total - $monthly_fee );
+		} else {
+			$log[] = 'No monthly fee was due for seller, resulting in a total transfer of ' . $total;
+		}
+
+		if ( $log ) {
+			$order->add_order_note( implode( '<br />', $log ) );
+		}
+
+		return $total;
+	}
+
+	/**
+	 * Returns vendor's portion of Stripe fee to pay.
+	 *
+	 * Not every vendor will have equal amounts of the order - imagine one vendor selling $50 of a $2,000 order.
+	 * If that order has one other vendor with $1,950 in the order, but they split the $58.30 fee evenly, that's not fair.
+	 *
+	 * @param [type] $vendor_id
+	 * @param [type] $order
+	 * @param [type] $commission
+	 * @return void
+	 */
+	protected function get_stripe_fee_portion( $vendor_id, $order, $commission ) {
+
+		$total_stripe_fee = WC_Stripe_Helper::get_stripe_fee( $order );
+		$order_total      = $order->get_total();
+		$base             = $commission['tax'] + $commission['shipping']; // The Commission object already did the hard work of getting per-vendor tax/shipping.
+
+		$vendor_totals = 0;
+
+		foreach ( $order->get_items() as $item ) {
+			$vendor = WCV_Vendors::get_vendor_from_product( $item->get_product()->get_id() );
+
+			if ( $vendor == $vendor_id ) {
+				$vendor_totals += $item->get_total();
+			}
+		}
+
+		$vendor_totals += $base;
+
+		$portion = round( $total_stripe_fee * ( $vendor_totals / $order_total ), 2 );
+
+		return apply_filters( 'get_stripe_fee_portion', $portion, $vendor_id, $order, $commission );
 	}
 
 	protected function get_items_list( $contents ) {
@@ -293,16 +393,12 @@ final class Stripe_Connect_For_WooCommerce {
 		];
 
 		$commissions  = WCV_Vendors::get_vendor_dues_from_order( $order );
-		$net_proceeds = WC_Stripe_Helper::get_stripe_net( $order );
-		$stripe_fee   = WC_Stripe_Helper::get_stripe_fee( $order );
-
 
 		// By default, WCV assumes the admin payout to the the 1 key in this method. We employ a different model.
 		if ( isset( $commissions[1] ) ) {
 			unset( $commissions[1] );
 		}
 
-		$split_fee = round( $stripe_fee / count( $commissions ), 2 );
 
 		// Loop through each vendor, add 'destination' of Stripe account;, amount of tax + shipping + (subtotal * commission)
 		foreach ( $commissions as $vendor_id => $commission ) {
@@ -313,16 +409,7 @@ final class Stripe_Connect_For_WooCommerce {
 				continue;
 			}
 
-			// Handle splitting the Stripe fee between each commission
-			$fee         = $stripe_fee >= $split_fee ? $split_fee : $stripe_fee;
-			$total       = $commission['total'] - $fee;
-			$stripe_fee -= $split_fee;
-
-			$monthly_fee = $this->maybe_process_monthly_fee( $vendor_id, $commission['total'] );
-
-			if ( $monthly_fee ) {
-				$total -= $monthly_fee;
-			}
+			$total = $this->prepare_commission( $vendor_id, $order, $commission );
 
 			$args = array_merge( $data, [
 				'destination' => $acct,
