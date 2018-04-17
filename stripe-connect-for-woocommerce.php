@@ -215,6 +215,10 @@ final class Stripe_Connect_For_WooCommerce {
 		$is_running_completed  = doing_action( 'woocommerce_order_status_completed' );
 		$is_running_processing = doing_action( 'woocommerce_order_status_processing' );
 
+		if ( isset( $receiver[1] ) ) {
+			unset( $receiver[1] );
+		}
+
 		foreach ( $receiver as $vendor_id => $data ) {
 			$receiver[ $vendor_id ]['commission'] = $this->prepare_commission( $vendor_id, $order, $data, false );
 		}
