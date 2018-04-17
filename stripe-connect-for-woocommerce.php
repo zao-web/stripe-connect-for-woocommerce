@@ -423,10 +423,10 @@ final class Stripe_Connect_For_WooCommerce {
 		);
 
 		$settings['connect_payout_schedule_monthly_anchor'] = array(
-			'title'       => __( 'Payout Schedule (Daily Anchor)', 'woocommerce-gateway-stripe' ),
-			'label'       => __( 'Daily Anchor', 'woocommerce-gateway-stripe' ),
+			'title'       => __( 'Payout Schedule (Monthly Anchor)', 'woocommerce-gateway-stripe' ),
+			'label'       => __( 'Monthly Anchor', 'woocommerce-gateway-stripe' ),
 			'type'        => 'text',
-			'description' => __( 'Weekly payouts will be made on this day of the month.', 'woocommerce-gateway-stripe' ),
+			'description' => __( 'Monthly payouts will be made on this day of the month.', 'woocommerce-gateway-stripe' ),
 			'default'     => '15',
 			'desc_tip'    => true,
 		);
