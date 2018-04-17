@@ -215,13 +215,8 @@ final class Stripe_Connect_For_WooCommerce {
 		$is_running_completed  = doing_action( 'woocommerce_order_status_completed' );
 		$is_running_processing = doing_action( 'woocommerce_order_status_processing' );
 
-		// Only filter when inserting completed commissions on hook.
-		if ( ! ( $is_running_completed || $is_running_processing ) ) {
-			return $receiver;
-		}
-
 		foreach ( $receiver as $vendor_id => $data ) {
-			$receiver[ $vendor_id ][ 'commission' ] = $this->prepare_commission( $vendor_id, $order, $data, false );
+			$receiver[ $vendor_id ]['commission'] = $this->prepare_commission( $vendor_id, $order, $data, false );
 		}
 
 		return $receiver;
@@ -249,7 +244,7 @@ final class Stripe_Connect_For_WooCommerce {
 
 		$log[] = 'Total = subtotal of' . $total . ' less Stripe fee portion of ' . $stripe_fee .' is ' . ( $total - $stripe_fee );
 
-		$total =- $stripe_fee;
+		$total -= $stripe_fee;
 
 		$monthly_fee = $this->maybe_process_monthly_fee( $vendor_id, $commission['total'] );
 
@@ -404,12 +399,12 @@ final class Stripe_Connect_For_WooCommerce {
 		foreach ( $commissions as $vendor_id => $commission ) {
 			$acct = get_user_meta( $vendor_id, 'stripe_account_id', true );
 
+			$total = $this->prepare_commission( $vendor_id, $order, $commission );
+
 			if ( empty( $acct ) ) {
-				$order->add_order_note( sprintf( __( 'Attempted to pay out %s to %s, but they do not have their Stripe account connected.' ), $commission['total'], get_user_by( 'id', $vendor_id )->display_name ) );
+				$order->add_order_note( sprintf( __( 'Attempted to pay out %s to %s, but they do not have their Stripe account connected.' ), $total, get_user_by( 'id', $vendor_id )->display_name ) );
 				continue;
 			}
-
-			$total = $this->prepare_commission( $vendor_id, $order, $commission );
 
 			$args = array_merge( $data, [
 				'destination' => $acct,
