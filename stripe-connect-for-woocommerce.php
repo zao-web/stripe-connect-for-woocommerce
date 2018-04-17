@@ -511,7 +511,7 @@ final class Stripe_Connect_For_WooCommerce {
 		if ( 'select' === $data['type'] ) { ?>
 			<select id="<?php esc_attr_e( $key ); ?>" name="<?php esc_attr_e( $key ); ?>" title="<?php esc_attr_e( $data['title'] ); ?>">
 				<?php foreach ( $data['options'] as $name => $val ) : ?>
-					<option value="<?php esc_attr_e( $name ); ?>" <?php selected( $val, $value, true ); ?>><?php echo esc_html( $val ); ?></option>
+					<option value="<?php esc_attr_e( $name ); ?>" <?php selected( $name, $value, true ); ?>><?php echo esc_html( $val ); ?></option>
 				<?php endforeach; ?>
 			</select>
 			<?php if ( ! empty( $data['description'] ) ) : ?>
