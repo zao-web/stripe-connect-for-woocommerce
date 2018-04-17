@@ -161,7 +161,7 @@ final class Stripe_Connect_For_WooCommerce {
 		add_filter( 'wcv_commission_rate_percent'       , [ $this, 'filter_wcv_commission' ]              , 10, 2 );
 		add_filter( 'woocommerce_shipping_packages'     , [ $this, 'add_shipping_package_meta' ] );
 		add_filter( 'wcv_vendor_dues'                   , [ $this, 'add_shipping_tax_to_commissions' ], 10, 3 );
-		add_filter( 'wcv_vendor_dues'                   , [ $this, 'maybe_modify_totals' ]            , 20, 3 );
+		// add_filter( 'wcv_vendor_dues'                   , [ $this, 'maybe_modify_totals' ]            , 20, 3 );
 		add_action( 'init'                              , 'scfwc_maybe_charge_monthly_fee' );
 	}
 
