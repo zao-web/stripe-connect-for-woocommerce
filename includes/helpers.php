@@ -22,10 +22,10 @@ function scfwc_get_payout_schedule( $user_id = 0 ) {
 
 		$_key = strtr( $key, array( $prefix => '' ) );
 
-		$user_settings = $user->payout_schedule;
+		$user_override = $user->{$key};
 
-		if ( ! empty( $user_settings ) && ! empty( $user_settings[ $key ] ) ) {
-			$payout_schedule[ $_key ] = $user_settings[ $key ];
+		if ( ! empty( $user_override ) ) {
+			$payout_schedule[ $_key ] = $user_override;
 		} else {
 			$payout_schedule[ $_key ] = $value;
 		}
