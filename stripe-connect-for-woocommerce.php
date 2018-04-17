@@ -237,9 +237,9 @@ final class Stripe_Connect_For_WooCommerce {
 			'Base seller payout for ' . get_user_by( 'id', $vendor_id )->display_name . ' for this order was' . $commission['commission']
 		];
 
-		$log[] = 'Subtotal = Base plus tax & shipping is' . $commission['commission'] + $commission['tax'] + $commission['shipping'];
+		$log[] = 'Subtotal = Base plus tax & shipping is' . ( $commission['commission'] + $commission['tax'] + $commission['shipping'] );
 
-		$total       =  $commission['commission'] + $commission['tax'] + $commission['shipping'];
+		$total       =  round( $commission['commission'] + $commission['tax'] + $commission['shipping'], 2 );
 		$stripe_fee  = $this->get_stripe_fee_portion( $vendor_id, $order, $commission );
 
 		$log[] = 'Total = subtotal of' . $total . ' less Stripe fee portion of ' . $stripe_fee .' is ' . ( $total - $stripe_fee );
@@ -250,7 +250,7 @@ final class Stripe_Connect_For_WooCommerce {
 
 		if ( $monthly_fee ) {
 			$total -= $monthly_fee;
-			$log[] = 'Monthly fee of  ' . $monthly_fee . ' was due for seller, resulting in a total transfer of ' . ( $total - $monthly_fee );
+			$log[] = 'Monthly fee of  ' . $monthly_fee . ' was due for seller, resulting in a total transfer of ' . round( $total - $monthly_fee, 2 );
 		} else {
 			$log[] = 'No monthly fee was due for seller, resulting in a total transfer of ' . $total;
 		}
@@ -259,7 +259,7 @@ final class Stripe_Connect_For_WooCommerce {
 			$order->add_order_note( implode( '<br />', $log ) );
 		}
 
-		return $total;
+		return round( $total, 2 );
 	}
 
 	/**
