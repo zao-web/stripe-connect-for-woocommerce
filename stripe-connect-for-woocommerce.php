@@ -237,19 +237,23 @@ final class Stripe_Connect_For_WooCommerce {
 	 * @return void
 	 */
 	protected function prepare_commission( $vendor_id, $order, $commission, $log = true ) {
+		$vendor_name = get_user_by( 'id', $vendor_id )->display_name;
 
 		$log = [
-			'Base seller payout for ' . get_user_by( 'id', $vendor_id )->display_name . ' for this order was ' . $commission['commission']
+			'Base seller payout for ' . $vendor_name . ' for this order was ' . $commission['commission'] . ' based on a commission of ' . scfwc_get_seller_commission( $vendor_id ) . ' percent'
 		];
 
 		$log[] = 'Subtotal = Base plus tax & shipping is ' . round( $commission['commission'] + $commission['tax'] + $commission['shipping'], 2 );
 
 		$total       =  round( $commission['commission'] + $commission['tax'] + $commission['shipping'], 2 );
+
 		$stripe_fee  = $this->get_stripe_fee_portion( $vendor_id, $order, $commission );
+		$total      -= $stripe_fee;
+		$log[]       = 'Total = subtotal of' . $total . ' less Stripe fee portion of ' . $stripe_fee .' is ' . ( $total - $stripe_fee );
 
-		$log[] = 'Total = subtotal of' . $total . ' less Stripe fee portion of ' . $stripe_fee .' is ' . ( $total - $stripe_fee );
-
-		$total -= $stripe_fee;
+		$payout_fee  = $this->get_payout_fee( $vendor_id, $order, $commission );
+		$total      -= $payout_fee;
+		$log[]       = 'Payout fee of 0.25% of the total products, shipping, and taxes for ' . $vendor_name . ' is ' . $payout_fee;
 
 		$monthly_fee = $this->maybe_process_monthly_fee( $vendor_id, $commission['total'] );
 
@@ -299,6 +303,40 @@ final class Stripe_Connect_For_WooCommerce {
 		$portion = round( $total_stripe_fee * ( $vendor_totals / $order_total ), 2 );
 
 		return apply_filters( 'get_stripe_fee_portion', $portion, $vendor_id, $order, $commission );
+	}
+
+	/**
+	 * Returns vendor's portion of Stripe payout fee to pay.
+	 *
+	 * This amounts to 0.25% of a vendor's payout, based on the subtotal prior to Chamfr's fee, not after.
+	 * This fee is also based on the inclusion of taxes and shipping..
+	 *
+	 * @param [type] $vendor_id
+	 * @param [type] $order
+	 * @param [type] $commission
+	 * @return void
+	 */
+	protected function get_payout_fee( $vendor_id, $order, $commission ) {
+
+		$payout_fee  = apply_filters( 'default_payout_fee_percentage', 0.25, $vendor_id, $order, $commission );
+		$order_total = $order->get_total();
+		$base        = $commission['tax'] + $commission['shipping']; // The Commission object already did the hard work of getting per-vendor tax/shipping.
+
+		$vendor_totals = 0;
+
+		foreach ( $order->get_items() as $item ) {
+			$vendor = WCV_Vendors::get_vendor_from_product( $item->get_product()->get_id() );
+
+			if ( $vendor == $vendor_id ) {
+				$vendor_totals += $item->get_total();
+			}
+		}
+
+		$vendor_totals += $base;
+
+		$portion = round( $payout_fee * ( $vendor_totals / $order_total ), 2 );
+
+		return apply_filters( 'get_payout_fee', $portion, $vendor_id, $order, $commission );
 	}
 
 	protected function get_items_list( $contents ) {
@@ -615,10 +653,9 @@ final class Stripe_Connect_For_WooCommerce {
 	 * The save action.
 	 *
 	 * @param $user_id int the ID of the current user.
-	 * @todo I don't think this is quite functional yet.
 	 * @return bool Meta ID if the key didn't exist, true on successful update, false on failure.
 	 */
-	function add_stripe_connect_fields_to_usermeta( $user_id ) {
+	public function add_stripe_connect_fields_to_usermeta( $user_id ) {
 
 	    // check that the current user have the capability to edit the $user_id
 	    if ( ! current_user_can( 'edit_user', $user_id ) ) {
