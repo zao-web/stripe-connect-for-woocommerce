@@ -64,10 +64,24 @@ function scfwc_update_user_payout_schedule( $user_id = 0 ) {
 
 	$user = $user_id ? get_user_by( 'id', $user_id ) : wp_get_current_user();
 
-    $account                  = \Stripe\Account::Retrieve( $user->stripe_account_id );
-	$account->payout_schedule = scfwc_get_payout_schedule( $user->ID );
+	try {
+		$account = \Stripe\Account::Retrieve( $user->stripe_account_id );
 
+	} catch( Stripe\Error\InvalidRequest $e )  {
+		add_action( 'admin_notices', function() use ( $e ) {
+			?>
+			<div id="message" class="error">
+			<p><?php echo wp_kses_post( $default_message ); ?></p>
+		</div>
+		<?php
+		} );
+
+		return false;
+	}
+
+	$account->payout_schedule = scfwc_get_payout_schedule( $user->ID );
 	return $account->save();
+
 }
 
 function scfwc_user_monthly_fee( $user_id = 0 ) {
