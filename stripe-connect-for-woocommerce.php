@@ -239,8 +239,13 @@ final class Stripe_Connect_For_WooCommerce {
 	protected function prepare_commission( $vendor_id, $order, $commission, $log = true ) {
 		$vendor_name = get_user_by( 'id', $vendor_id )->display_name;
 
+
+		// For now, we'll override the commission calculation, which for whatever reason, is not taking our custom rates into account
+		// TODO: Determine why that is - possibly hooking in too late.
+		$commission['commission'] = $this->calculate_base_total( $vendor_id, $order );
+
 		$log = [
-			'Base seller payout for ' . $vendor_name . ' for this order was ' . $commission['commission'] . ' based on a commission of ' . scfwc_get_seller_commission( $vendor_id ) . ' percent'
+			'Base seller payout for ' . $vendor_name . ' for this order was ' . $commission['commission'] . ' based on a commission of ' . scfwc_get_seller_commission( $vendor_id ) . '%'
 		];
 
 		$log[] = 'Subtotal = Base plus tax & shipping is ' . round( $commission['commission'] + $commission['tax'] + $commission['shipping'], 2 );
@@ -249,7 +254,7 @@ final class Stripe_Connect_For_WooCommerce {
 
 		$stripe_fee  = $this->get_stripe_fee_portion( $vendor_id, $order, $commission );
 		$total      -= $stripe_fee;
-		$log[]       = 'Total = subtotal of' . $total . ' less Stripe fee portion of ' . $stripe_fee .' is ' . ( $total - $stripe_fee );
+		$log[]       = 'Total = subtotal of ' . $total . ' less Stripe fee portion of ' . $stripe_fee .' is ' . ( $total - $stripe_fee );
 
 		$payout_fee  = $this->get_payout_fee( $vendor_id, $order, $commission );
 		$total      -= $payout_fee;
@@ -306,6 +311,36 @@ final class Stripe_Connect_For_WooCommerce {
 	}
 
 	/**
+	 * Returns proper base vendor commission.
+	 *
+	 * Not every vendor will have equal amounts of the order - imagine one vendor selling $50 of a $2,000 order.
+	 * If that order has one other vendor with $1,950 in the order, but they split the $58.30 fee evenly, that's not fair.
+	 *
+	 * @param [type] $vendor_id
+	 * @param [type] $order
+	 * @return void
+	 */
+	protected function calculate_base_total( $vendor_id, $order ) {
+
+		$commission  = scfwc_get_seller_commission( $vendor_id );
+		$order_total = $order->get_total();
+
+		$vendor_totals = 0;
+
+		foreach ( $order->get_items() as $item ) {
+			$vendor = WCV_Vendors::get_vendor_from_product( $item->get_product()->get_id() );
+
+			if ( $vendor == $vendor_id ) {
+				$vendor_totals += $item->get_total();
+			}
+		}
+
+		$portion = round( ( $commission * $vendor_totals ), 2 );
+
+		return apply_filters( 'calculate_base_seller_commission_total', $portion, $vendor_id, $order );
+	}
+
+	/**
 	 * Returns vendor's portion of Stripe payout fee to pay.
 	 *
 	 * This amounts to 0.25% of a vendor's payout, based on the subtotal prior to Chamfr's fee, not after.
@@ -318,7 +353,7 @@ final class Stripe_Connect_For_WooCommerce {
 	 */
 	protected function get_payout_fee( $vendor_id, $order, $commission ) {
 
-		$payout_fee  = apply_filters( 'default_payout_fee_percentage', 0.25, $vendor_id, $order, $commission );
+		$payout_fee  = apply_filters( 'default_payout_fee_percentage', 0.0025, $vendor_id, $order, $commission );
 		$order_total = $order->get_total();
 		$base        = $commission['tax'] + $commission['shipping']; // The Commission object already did the hard work of getting per-vendor tax/shipping.
 
@@ -334,7 +369,7 @@ final class Stripe_Connect_For_WooCommerce {
 
 		$vendor_totals += $base;
 
-		$portion = round( $payout_fee * ( $vendor_totals / $order_total ), 2 );
+		$portion = round( $payout_fee * $vendor_totals, 2 );
 
 		return apply_filters( 'get_payout_fee', $portion, $vendor_id, $order, $commission );
 	}
