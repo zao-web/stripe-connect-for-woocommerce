@@ -480,8 +480,6 @@ final class Stripe_Connect_For_WooCommerce {
 			unset( $commissions[1] );
 		}
 
-		$vendor_name = get_user_by( 'id', $vendor_id )->display_name;
-
 		// Loop through each vendor, add 'destination' of Stripe account;, amount of tax + shipping + (subtotal * commission)
 		foreach ( $commissions as $vendor_id => $commission ) {
 			$acct = get_user_meta( $vendor_id, 'stripe_account_id', true );
@@ -492,6 +490,8 @@ final class Stripe_Connect_For_WooCommerce {
 				$order->add_order_note( sprintf( __( 'Attempted to pay out %s to %s, but they do not have their Stripe account connected.' ), $total, $vendor_name ) );
 				continue;
 			}
+
+			$vendor_name = get_user_by( 'id', $vendor_id )->display_name;
 
 			$args = array_merge( $data, [
 					'destination' => $acct,
@@ -509,11 +509,11 @@ final class Stripe_Connect_For_WooCommerce {
 			if ( $_response->id ) {
 
 				if ( $monthly_fee ) {
-					$order->add_order_note( sprintf( __( 'Paid monthly fee of %s out of the commission (%s) to %s.' ), $monthly_fee, $total, get_user_by( 'id', $vendor_id )->display_name ) );
+					$order->add_order_note( sprintf( __( 'Paid monthly fee of %s out of the commission (%s) to %s.' ), $monthly_fee, $total, $vendor_name ) );
 					update_user_meta( $vendor_id, date( 'm-Y' ) . '-chamfr-fee', array( 'transfer_id' => $_response->id, 'fee' => $monthly_fee ) );
 				}
 
-				$order->add_order_note( sprintf( __( 'Successfully transferred (%s) to %s. Transfer ID#: %s' ), $total, get_user_by( 'id', $vendor_id )->display_name, $_response->id ) );
+				$order->add_order_note( sprintf( __( 'Successfully transferred (%s) to %s. Transfer ID#: %s' ), $total, $vendor_name, $_response->id ) );
 			}
 
 		}
