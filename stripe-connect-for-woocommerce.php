@@ -168,6 +168,7 @@ final class Stripe_Connect_For_WooCommerce {
 		}
 
 		// TODO: get this working so that the commissions match the actual payouts.
+		// RELATED TODO: Ensure that Stripe webhook works properly, allowing for payouts received into vendor accounts to mark commissions as paid.
 		// add_filter( 'wcv_vendor_dues'                   , [ $this, 'maybe_modify_totals' ]            , 20, 3 );
 		add_action( 'init'                              , 'scfwc_maybe_charge_monthly_fee' );
 	}
@@ -731,12 +732,14 @@ final class Stripe_Connect_For_WooCommerce {
 	        return false;
 	    }
 
-		//
-		foreach ( $this->add_connect_settings() as $key => $data ) {
+		// Prepend stripe_account_id to the normal connect settings in order to save it effectively.
+		foreach ( array_merge( array( 'stripe_account_id' => array() ), $this->add_connect_settings() ) as $key => $data ) {
 
 			if ( isset( $_POST[ $key ] ) ) {
 				// create/update user meta for the $user_id
 				update_user_meta( $user_id, $key, sanitize_text_field( $_POST[ $key ] ) );
+			} else {
+				delete_user_meta( $user_id, $key );
 			}
 		}
 
