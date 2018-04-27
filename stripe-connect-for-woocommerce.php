@@ -673,6 +673,15 @@ final class Stripe_Connect_For_WooCommerce {
             </td>
         </tr>
 	<?php endforeach; ?>
+		<tr>
+            <th>
+                <label for="stripe_account_id"><?php echo esc_html( 'Stripe Account ID' ); ?></label>
+            </th>
+            <td>
+                <input type="text" class="regular-text ltr" id="stripe_account_id" name="stripe_account_id" value="<?php esc_attr_e( $user->stripe_account_id ); ?>"
+			   title="<?php esc_attr_e( $data['title'] ); ?>">
+            </td>
+        </tr>
     </table>
     <?php
 	}
