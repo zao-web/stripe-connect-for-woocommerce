@@ -161,6 +161,12 @@ final class Stripe_Connect_For_WooCommerce {
 		add_filter( 'wcv_commission_rate_percent'       , [ $this, 'filter_wcv_commission' ]              , 10, 2 );
 		add_filter( 'woocommerce_shipping_packages'     , [ $this, 'add_shipping_package_meta' ] );
 		add_filter( 'wcv_vendor_dues'                   , [ $this, 'add_shipping_tax_to_commissions' ], 10, 3 );
+
+		if ( isset( $_GET['role'] ) && 'vendor' === $_GET['role'] ) {
+			add_filter( 'manage_users_columns'              , [ $this, 'add_stripe_id_column' ] );
+			add_filter( 'manage_users_custom_column'        , [ $this, 'render_stripe_id_column_data' ], 10, 3 );
+		}
+
 		// TODO: get this working so that the commissions match the actual payouts.
 		// add_filter( 'wcv_vendor_dues'                   , [ $this, 'maybe_modify_totals' ]            , 20, 3 );
 		add_action( 'init'                              , 'scfwc_maybe_charge_monthly_fee' );
@@ -630,6 +636,21 @@ final class Stripe_Connect_For_WooCommerce {
 		include STRIPE_CONNECT_WC_INC . 'dashboard-stripe.php';
 	}
 
+	public function add_stripe_id_column( $column ) {
+		$column['stripe_account_id'] = __( 'Stripe Account ID' );
+		return $column;
+	}
+
+	public function render_stripe_id_column_data( $val, $column_name, $user_id ) {
+
+		switch ( $column_name ) {
+			case 'stripe_account_id' :
+				return get_user_meta( $user_id, 'stripe_account_id', true );
+				break;
+			default:
+		}
+		return $val;
+	}
 
 	public function add_stripe_connect_fields_to_profile( $user ) {
 		// Iterate through add_connect_settings()
