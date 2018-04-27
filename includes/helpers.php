@@ -44,6 +44,8 @@ function scfwc_get_payout_schedule( $user_id = 0 ) {
 		unset( $payout_schedule['weekly_anchor'] );
 	}
 
+	unset( $payout_schedule['default_commission'] );
+
 	return apply_filters( 'scfwc_get_payout_schedule', $payout_schedule, $user );
 }
 
@@ -66,7 +68,6 @@ function scfwc_update_user_payout_schedule( $user_id = 0 ) {
 
 	try {
 		$account = \Stripe\Account::Retrieve( $user->stripe_account_id );
-
 	} catch( Stripe\Error\InvalidRequest $e )  {
 		add_action( 'admin_notices', function() use ( $e ) {
 			?>
@@ -80,6 +81,7 @@ function scfwc_update_user_payout_schedule( $user_id = 0 ) {
 	}
 
 	$account->payout_schedule = scfwc_get_payout_schedule( $user->ID );
+
 	return $account->save();
 
 }
