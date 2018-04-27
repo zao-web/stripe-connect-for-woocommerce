@@ -168,7 +168,7 @@ final class Stripe_Connect_For_WooCommerce {
 		}
 
 		// TODO: get this working so that the commissions match the actual payouts.
-		// RELATED TODO: Ensure that Stripe webhook works properly, allowing for payouts received into vendor accounts to mark commissions as paid.
+		// RELATED TODO: Ensure that Stripe webhook works properly, allowing for payouts received into vendor accounts to mark commissions as paid. payout.paid
 		// add_filter( 'wcv_vendor_dues'                   , [ $this, 'maybe_modify_totals' ]            , 20, 3 );
 		add_action( 'init'                              , 'scfwc_maybe_charge_monthly_fee' );
 	}
@@ -627,6 +627,15 @@ final class Stripe_Connect_For_WooCommerce {
 			'type'        => 'text',
 			'description' => __( 'This is the default monthly fee that sellers are charged regardless of any payout.', 'woocommerce-gateway-stripe' ),
 			'default'     => '99.00',
+			'desc_tip'    => true,
+		);
+
+		$settings['passive_monthly_fee_date'] = array(
+			'title'       => __( 'Monthly Fee Date (Global)', 'woocommerce-gateway-stripe' ),
+			'label'       => __( 'Default Monthly Fee Date', 'woocommerce-gateway-stripe' ),
+			'type'        => 'text',
+			'description' => __( 'This is the default day of the month on which the monthly fee will be debited.', 'woocommerce-gateway-stripe' ),
+			'default'     => '15',
 			'desc_tip'    => true,
 		);
 
