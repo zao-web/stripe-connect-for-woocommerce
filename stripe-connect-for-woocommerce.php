@@ -322,7 +322,7 @@ final class Stripe_Connect_For_WooCommerce {
 	 */
 	protected function calculate_base_total( $vendor_id, $order ) {
 
-		$commission  = scfwc_get_seller_commission( $vendor_id );
+		$commission  = scfwc_get_seller_commission( $vendor_id ) / 100;
 		$order_total = $order->get_total();
 
 		$vendor_totals = 0;
