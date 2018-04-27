@@ -375,7 +375,8 @@ final class Stripe_Connect_For_WooCommerce {
 
 		$vendor_totals += $base;
 
-		$portion = round( $payout_fee * $vendor_totals, 2 );
+		$total   = $payout_fee * $vendor_totals;
+		$portion = ( floor( 100 * $total ) + floor( 100 * $total - floor( 100 * $total ) ) ) / 100;
 
 		return apply_filters( 'get_payout_fee', $portion, $vendor_id, $order, $commission );
 	}
