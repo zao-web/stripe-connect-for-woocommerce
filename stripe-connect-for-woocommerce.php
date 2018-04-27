@@ -479,6 +479,8 @@ final class Stripe_Connect_For_WooCommerce {
 			unset( $commissions[1] );
 		}
 
+		$vendor_name = get_user_by( 'id', $vendor_id )->display_name;
+
 		// Loop through each vendor, add 'destination' of Stripe account;, amount of tax + shipping + (subtotal * commission)
 		foreach ( $commissions as $vendor_id => $commission ) {
 			$acct = get_user_meta( $vendor_id, 'stripe_account_id', true );
@@ -486,13 +488,14 @@ final class Stripe_Connect_For_WooCommerce {
 			$total = $this->prepare_commission( $vendor_id, $order, $commission, 'processing' === $order->get_status() );
 
 			if ( empty( $acct ) ) {
-				$order->add_order_note( sprintf( __( 'Attempted to pay out %s to %s, but they do not have their Stripe account connected.' ), $total, get_user_by( 'id', $vendor_id )->display_name ) );
+				$order->add_order_note( sprintf( __( 'Attempted to pay out %s to %s, but they do not have their Stripe account connected.' ), $total, $vendor_name ) );
 				continue;
 			}
 
 			$args = array_merge( $data, [
-				'destination' => $acct,
-				'amount'      => WC_Stripe_Helper::get_stripe_amount( $total )
+					'destination' => $acct,
+					'amount'      => WC_Stripe_Helper::get_stripe_amount( $total ),
+					'description' => 'Transfer to ' . $vendor_name . ' from Order #' . $order->get_id()
 				]
 			);
 
