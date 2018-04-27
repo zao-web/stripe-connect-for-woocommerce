@@ -143,7 +143,6 @@ function scfwc_maybe_charge_monthly_fee( $user_id = 0 ) {
 
 	$global_fee = scfwc_user_global_monthly_fee( $user->ID );
 
-
 	// Chamfr may set these to be free
 	if ( $global_fee < 0.01 ) {
 		return true;

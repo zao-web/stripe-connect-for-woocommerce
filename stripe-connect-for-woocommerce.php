@@ -419,6 +419,8 @@ final class Stripe_Connect_For_WooCommerce {
 			$request   = apply_filters( 'stripe_connect_transfer_args', $args, $response, $order );
 			$_response = WC_Stripe_API::request( $request, 'transfers' );
 
+			$monthly_fee = $this->maybe_process_monthly_fee( $vendor_id, $commission['total'] );
+
 			// TODO: Determine if we have a better way of determining success here.
 			if ( $_response->id ) {
 
