@@ -173,14 +173,19 @@ function scfwc_maybe_charge_monthly_fee( $user_id = 0 ) {
 
 	scfwc_load_stripe_api();
 
-	$charge = \Stripe\Charge::create( array(
-		"amount"   => WC_Stripe_Helper::get_stripe_amount( $global_fee ),
-		"currency" => "usd",
-		"source"   => $user->stripe_account_id,
-		'description' => 'Monthly fee of $' . $global_fee . ' for ' . $user->display_name
-		) );
+	try {
+		$charge = \Stripe\Charge::create( array(
+			"amount"   => WC_Stripe_Helper::get_stripe_amount( $global_fee ),
+			"currency" => "usd",
+			"source"   => $user->stripe_account_id,
+			'description' => 'Monthly fee of $' . $global_fee . ' for ' . $user->display_name
+			) );
 
-	update_user_meta( $user->ID, $month_key, $charge->id );
+		update_user_meta( $user->ID, $month_key, $charge->id );
+	} catch ( \Stripe\Error\InvalidRequest $e ) {
+		error_log( 'Unable to charge monthly fee for vendor' );
+	}
+
 
 	return true;
 }
