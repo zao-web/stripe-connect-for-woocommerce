@@ -169,6 +169,7 @@ final class Stripe_Connect_For_WooCommerce {
 
 		// TODO: get this working so that the commissions match the actual payouts.
 		// RELATED TODO: Ensure that Stripe webhook works properly, allowing for payouts received into vendor accounts to mark commissions as paid. payout.paid
+		// transfer.created - need to have a way to connect payouts and transfers for webhooks - pending support reply from Stripe.
 		// add_filter( 'wcv_vendor_dues'                   , [ $this, 'maybe_modify_totals' ]            , 20, 3 );
 		add_action( 'init'                              , 'scfwc_maybe_charge_monthly_fee' );
 	}
@@ -560,7 +561,7 @@ final class Stripe_Connect_For_WooCommerce {
 			'label'       => __( 'Interval', 'woocommerce-gateway-stripe' ),
 			'type'        => 'select',
 			'description' => __( 'Select the payout schedule you would like for sellers by default. This is how often the seller will receive eligble payouts into their account.', 'woocommerce-gateway-stripe' ),
-			'default'     => 'daily',
+			'default'     => 'monthly',
 			'desc_tip'    => true,
 			'options'     => array(
 				'daily'   => __( 'Daily', 'woocommerce-gateway-stripe' ),
@@ -599,7 +600,7 @@ final class Stripe_Connect_For_WooCommerce {
 			'label'       => __( 'Monthly Anchor', 'woocommerce-gateway-stripe' ),
 			'type'        => 'text',
 			'description' => __( 'Monthly payouts will be made on this day of the month.', 'woocommerce-gateway-stripe' ),
-			'default'     => '15',
+			'default'     => '5',
 			'desc_tip'    => true,
 		);
 
@@ -608,7 +609,7 @@ final class Stripe_Connect_For_WooCommerce {
 			'label'       => __( 'Default Commission', 'woocommerce-gateway-stripe' ),
 			'type'        => 'text',
 			'description' => __( 'This is the default amount sellers will receive, plus taxes and shipping.', 'woocommerce-gateway-stripe' ),
-			'default'     => '85',
+			'default'     => '88',
 			'desc_tip'    => true,
 		);
 
@@ -700,7 +701,10 @@ final class Stripe_Connect_For_WooCommerce {
 	}
 
 	protected function generate_input( $key, $data, $user ) {
-		$value = empty(  $user->{$key} ) ? $data['default'] : $user->{$key};
+		$wc_stripe_settings = get_option( 'woocommerce_stripe_settings', array() );
+
+		$default = empty( $wc_stripe_settings->{$key} ) ? $data['default'] : $wc_stripe_settings->{$key};
+		$value   = empty( $user->{$key} ) ? $default : $user->{$key};
 
 		if ( 'text' === $data['type'] ) { ?>
 
