@@ -68,7 +68,7 @@ function scfwc_update_user_payout_schedule( $user_id = 0 ) {
 
 	try {
 		$account = \Stripe\Account::Retrieve( $user->stripe_account_id );
-	} catch( Stripe\Error\InvalidRequest $e )  {
+	} catch ( Stripe\Error\InvalidRequest $e )  {
 		add_action( 'admin_notices', function() use ( $e ) {
 			?>
 			<div id="message" class="error">
@@ -78,6 +78,14 @@ function scfwc_update_user_payout_schedule( $user_id = 0 ) {
 		} );
 
 		return false;
+	} catch ( Stripe\Error\Permission $e ) {
+		add_action( 'admin_notices', function() use ( $e ) {
+			?>
+			<div id="message" class="error">
+			<p><?php echo wp_kses_post( $default_message ); ?></p>
+		</div>
+		<?php
+		} );
 	}
 
 	$account->payout_schedule = scfwc_get_payout_schedule( $user->ID );
