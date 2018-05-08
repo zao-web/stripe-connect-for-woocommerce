@@ -506,6 +506,8 @@ final class Stripe_Connect_For_WooCommerce {
 
 			$monthly_fee = $this->maybe_process_monthly_fee( $vendor_id, $commission['total'] );
 
+			do_action( 'stripe_connect_create_seller_payout', $_response, $request, $response, $order, $vendor_id, $commission );
+
 			// TODO: Determine if we have a better way of determining success here.
 			if ( $_response->id ) {
 
