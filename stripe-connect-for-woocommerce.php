@@ -674,7 +674,7 @@ final class Stripe_Connect_For_WooCommerce {
 		$test     = $testmode ? 'test/' : '';
 		$acct     = get_user_meta( $user_id, 'stripe_account_id', true );
 		$link     = "https://dashboard.stripe.com/{$test}applications/users/$acct";
-		return '<a href="' . esc_url( $link ) . '">' . esc_html( $acct ) . '</a>';
+		return '<a target ="_blank" href="' . esc_url( $link ) . '">' . esc_html( $acct ) . '</a>';
 	}
 
 	public function render_stripe_id_column_data( $val, $column_name, $user_id ) {
