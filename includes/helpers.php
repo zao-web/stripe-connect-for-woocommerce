@@ -86,6 +86,8 @@ function scfwc_update_user_payout_schedule( $user_id = 0 ) {
 		</div>
 		<?php
 		} );
+		return false;
+
 	}
 
 	$account->payout_schedule = scfwc_get_payout_schedule( $user->ID );
