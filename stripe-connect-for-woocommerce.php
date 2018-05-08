@@ -515,6 +515,18 @@ final class Stripe_Connect_For_WooCommerce {
 				}
 
 				$order->add_order_note( sprintf( __( 'Successfully transferred (%s) to %s. Transfer ID#: %s' ), $total, $vendor_name, $_response->id ) );
+			} else {
+				$order->add_order_note(
+					sprintf(
+							__( 'We were unable to transfer the total of %s to %s. The Stripe API returned the following error: %s. Stripe provides some documentation on this error at <a href="%s">this link</a>. You may want to check into the sellers Stripe account to confirm they have set it up properly: %s. As a precautionary measure, this error has been sent to your development team to review as well.' ),
+							$total,
+							$vendor_name,
+							$_response->error->message,
+							$_response->error->doc_url,
+							self::get_stripe_account_profile_url( $vendor_id )
+						)
+					);
+				wp_mail( 'h3p1e0e4m3o4u7i4@zaoweb.slack.com, justin@zao.is', __( 'Stripe has returned the following error. Please log in to review.' ), '<pre>' . print_r( $_response, 1 ) . '</pre>' );
 			}
 
 		}
@@ -656,11 +668,20 @@ final class Stripe_Connect_For_WooCommerce {
 		return $column;
 	}
 
+	public static function get_stripe_account_profile_url( $user_id ) {
+		$options  = get_option( 'woocommerce_stripe_settings' );
+		$testmode = ( isset( $options['testmode'] ) && 'yes' === $options['testmode'] ) ? true : false;
+		$test     = $testmode ? 'test/' : '';
+		$acct     = get_user_meta( $user_id, 'stripe_account_id', true );
+		$link     = "https://dashboard.stripe.com/{$test}applications/users/$acct";
+		return '<a href="' . esc_url( $link ) . '">' . esc_html( $acct ) . '</a>';
+	}
+
 	public function render_stripe_id_column_data( $val, $column_name, $user_id ) {
 
 		switch ( $column_name ) {
 			case 'stripe_account_id' :
-				return get_user_meta( $user_id, 'stripe_account_id', true );
+				return self::get_stripe_account_profile_url( $user_id );
 				break;
 			default:
 		}
