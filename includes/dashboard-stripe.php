@@ -28,7 +28,8 @@
   -webkit-user-select: none;
   -ms-user-select: none;
   user-select: none;
-  height: auto
+  height: auto;
+  float: right;
 }
 
 .stripe-connect span {
@@ -177,10 +178,10 @@ $account_id = get_user_meta( get_current_user_id(), 'stripe_account_id', true );
 if ( empty( $account_id ) ) :
 
 ?>
-<p style="margin-top: 1em;"><a class="stripe-connect light-blue" href="<?php echo esc_url( scfwc_get_authorize_url() );?>"><span>Connect to Stripe</span></a></p>
+<a class="stripe-connect light-blue" href="<?php echo esc_url( scfwc_get_authorize_url() );?>"><span>Connect to Stripe</span></a>
 
 <?php elseif ( ! empty( $_GET ) ) : ?>
   <p style="margin-top: 1em;"><em>Your Stripe account has been connected.</em></p>
 <?php else : ?>
-<p class="stripe-login-link" style="margin-top: 1em;"><a class="stripe-connect light-blue" href="<?php echo esc_url( scfwc_get_login_link() );?>"><span>Log In to Stripe</span></a></p>
+<a class="stripe-connect light-blue" href="<?php echo esc_url( scfwc_get_login_link() );?>"><span>Log In to Stripe</span></a>
 <?php endif; ?>
