@@ -180,5 +180,5 @@ if ( empty( $account_id ) ) :
 ?>
 <a class="stripe-connect light-blue" href="<?php echo esc_url( scfwc_get_authorize_url() );?>"><span>Connect to Stripe</span></a>
 <?php else : ?>
-<a class="stripe-connect light-blue" href="<?php echo esc_url( scfwc_get_login_link() );?>"><span>Log In to Stripe</span></a>
+<a target="_blank" class="stripe-connect light-blue" href="<?php echo esc_url( scfwc_get_login_link() );?>"><span>Access Stripe Dashboard</span></a>
 <?php endif; ?>
