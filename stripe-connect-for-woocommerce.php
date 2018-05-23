@@ -638,6 +638,7 @@ final class Stripe_Connect_For_WooCommerce {
 			'desc_tip'    => true,
 		);
 
+		/*
 		$settings['passive_monthly_fee'] = array(
 			'title'       => __( 'Monthly Fee (Global)', 'woocommerce-gateway-stripe' ),
 			'label'       => __( 'Default Monthly Fee', 'woocommerce-gateway-stripe' ),
@@ -646,6 +647,7 @@ final class Stripe_Connect_For_WooCommerce {
 			'default'     => '99.00',
 			'desc_tip'    => true,
 		);
+		*/
 
 		$settings['passive_monthly_fee_date'] = array(
 			'title'       => __( 'Monthly Fee Date (Global)', 'woocommerce-gateway-stripe' ),
