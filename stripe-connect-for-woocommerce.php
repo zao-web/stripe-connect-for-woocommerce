@@ -171,7 +171,7 @@ final class Stripe_Connect_For_WooCommerce {
 		// RELATED TODO: Ensure that Stripe webhook works properly, allowing for payouts received into vendor accounts to mark commissions as paid. payout.paid
 		// transfer.created - need to have a way to connect payouts and transfers for webhooks - pending support reply from Stripe.
 		// add_filter( 'wcv_vendor_dues'                   , [ $this, 'maybe_modify_totals' ]            , 20, 3 );
-		add_action( 'init'                              , 'scfwc_maybe_charge_monthly_fee' );
+		// add_action( 'init'                              , 'scfwc_maybe_charge_monthly_fee' );
 	}
 
 	/**
