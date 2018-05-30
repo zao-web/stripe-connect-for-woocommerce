@@ -94,6 +94,14 @@ final class Stripe_Connect_For_WooCommerce {
 	protected $activation_errors = array();
 
 	/**
+	 * Seller Statements Object.
+	 *
+	 * @var    Seller_Statements
+	 * @since  0.1.0
+	 */
+	protected $statements = null;
+
+	/**
 	 * Singleton instance of plugin.
 	 *
 	 * @var    Stripe_Connect_For_WooCommerce
@@ -134,7 +142,7 @@ final class Stripe_Connect_For_WooCommerce {
 	public function plugin_classes() {
 		include_once $this->path . 'includes/settings.php';
 		include_once $this->path . 'includes/helpers.php';
-		// $this->plugin_class = new SCFWC_Plugin_Class( $this );
+		include_once $this->path . 'includes/class-seller-statements.php';
 
 	} // END OF PLUGIN CLASSES FUNCTION
 
@@ -161,6 +169,8 @@ final class Stripe_Connect_For_WooCommerce {
 		add_filter( 'wcv_commission_rate_percent'       , [ $this, 'filter_wcv_commission' ]              , 10, 2 );
 		add_filter( 'woocommerce_shipping_packages'     , [ $this, 'add_shipping_package_meta' ] );
 		add_filter( 'wcv_vendor_dues'                   , [ $this, 'add_shipping_tax_to_commissions' ], 10, 3 );
+
+		add_action( 'stripe_connect_create_seller_payout', [ $this, 'record_seller_statements' ], 10, 7 );
 
 		if ( isset( $_GET['role'] ) && 'vendor' === $_GET['role'] ) {
 			add_filter( 'manage_users_columns'              , [ $this, 'add_stripe_id_column' ] );
@@ -202,7 +212,7 @@ final class Stripe_Connect_For_WooCommerce {
 				 continue;
 			} else {
 				foreach ( $data as $product_id => $contents ) {
-					$receiver[ $vendor_id ][$product_id]['tax'] += $rates[ $vendor_id ];
+					$receiver[ $vendor_id ][ $product_id ]['tax'] += $rates[ $vendor_id ];
 					continue 2;
 				}
 			}
@@ -229,7 +239,8 @@ final class Stripe_Connect_For_WooCommerce {
 		}
 
 		foreach ( $receiver as $vendor_id => $data ) {
-			$receiver[ $vendor_id ]['commission'] = $this->prepare_commission( $vendor_id, $order, $data, false );
+			$commission = $this->prepare_commission( $vendor_id, $order, $data, false );
+			$receiver[ $vendor_id ]['commission'] = $commission['total'];
 		}
 
 		return $receiver;
@@ -247,6 +258,7 @@ final class Stripe_Connect_For_WooCommerce {
 	protected function prepare_commission( $vendor_id, $order, $commission, $log = true ) {
 		$vendor_name = get_user_by( 'id', $vendor_id )->display_name;
 
+		$totals = [];
 
 		// For now, we'll override the commission calculation, which for whatever reason, is not taking our custom rates into account
 		// TODO: Determine why that is - possibly hooking in too late.
@@ -256,9 +268,12 @@ final class Stripe_Connect_For_WooCommerce {
 			'Base seller payout for ' . $vendor_name . ' for this order was ' . $commission['commission'] . ' based on a commission of ' . scfwc_get_seller_commission( $vendor_id ) . '%'
 		];
 
+		$totals['base'] = $commission['commission'];
+
 		$log[] = 'Subtotal = Base plus tax & shipping is ' . round( $commission['commission'] + $commission['tax'] + $commission['shipping'], 2 );
 
-		$total       =  round( $commission['commission'] + $commission['tax'] + $commission['shipping'], 2 );
+		$total              =  round( $commission['commission'] + $commission['tax'] + $commission['shipping'], 2 );
+		$totals['subtotal'] = $total;
 
 		$stripe_fee  = $this->get_stripe_fee_portion( $vendor_id, $order, $commission );
 		$total      -= $stripe_fee;
@@ -268,10 +283,13 @@ final class Stripe_Connect_For_WooCommerce {
 		$total      -= $payout_fee;
 		$log[]       = 'Payout fee of 0.25% of the total products, shipping, and taxes for ' . $vendor_name . ' is ' . $payout_fee;
 
+		$totals['transactional_fee'] = $stripe_fee + $payout_fee;
+
 		$monthly_fee = $this->maybe_process_monthly_fee( $vendor_id, $commission['total'] );
 
 		if ( $monthly_fee ) {
 			$log[] = 'Monthly fee of  ' . $monthly_fee . ' was due for seller, resulting in a total transfer of ' . round( $total - $monthly_fee, 2 );
+			$totals['monthly_fee'] = $monthly_fee;
 			$total -= $monthly_fee;
 		} else {
 			$log[] = 'No monthly fee was due for seller, resulting in a total transfer of ' . $total;
@@ -281,7 +299,9 @@ final class Stripe_Connect_For_WooCommerce {
 			$order->add_order_note( implode( '<br />', $log ) );
 		}
 
-		return round( $total, 2 );
+		$totals['total'] = round( $total, 2 );
+
+		return $totals;
 	}
 
 	/**
@@ -481,11 +501,11 @@ final class Stripe_Connect_For_WooCommerce {
 			unset( $commissions[1] );
 		}
 
-		// Loop through each vendor, add 'destination' of Stripe account;, amount of tax + shipping + (subtotal * commission)
+		// Loop through each vendor, add 'destination' of Stripe account, amount of tax + shipping + (subtotal * commission)
 		foreach ( $commissions as $vendor_id => $commission ) {
-			$acct = get_user_meta( $vendor_id, 'stripe_account_id', true );
-
-			$total = $this->prepare_commission( $vendor_id, $order, $commission, 'processing' === $order->get_status() );
+			$acct  = get_user_meta( $vendor_id, 'stripe_account_id', true );
+			$totals = $this->prepare_commission( $vendor_id, $order, $commission, 'processing' === $order->get_status() );
+			$total  = $totals['total'];
 
 			if ( empty( $acct ) ) {
 				$order->add_order_note( sprintf( __( 'Attempted to pay out %s to %s, but they do not have their Stripe account connected.' ), $total, $vendor_name ) );
@@ -506,7 +526,7 @@ final class Stripe_Connect_For_WooCommerce {
 
 			$monthly_fee = $this->maybe_process_monthly_fee( $vendor_id, $commission['total'] );
 
-			do_action( 'stripe_connect_create_seller_payout', $_response, $request, $response, $order, $vendor_id, $commission );
+			do_action( 'stripe_connect_create_seller_payout', $_response, $request, $response, $order, $vendor_id, $commission, $totals );
 
 			// TODO: Determine if we have a better way of determining success here.
 			if ( $_response->id ) {
@@ -533,6 +553,73 @@ final class Stripe_Connect_For_WooCommerce {
 				wp_mail( 'h3p1e0e4m3o4u7i4@zaoweb.slack.com, justin@zao.is, katie@chamfr.com, julie@chamfr.com', __( 'Stripe has returned the following error. Please log in to review.' ), '<pre>' . print_r( $_response, 1 ) . '</pre>' );
 			}
 
+		}
+
+	}
+
+	public function record_seller_statements( $response, $request, $stripe_response, $order, $vendor_id, $commission, $totals ) {
+		$statement = new Seller_Statements( $vendor_id );
+		$order_id  = $order->get_id();
+
+		if ( $totals['monthly_fee'] ) {
+			$args =  [
+				'amount'      => $totals['monthly_fee'],
+                'type'        => 'monthly_fee',
+                'description' => __( 'Monthly Chamfr Fee' ),
+                'status'      => 'paid',
+			];
+
+			$statement->add_fee( $args );
+		}
+
+		if ( ! empty( $commission ) ) {
+
+			if ( ! empty( $commission['tax'] ) && $commission['tax'] > 0.00 ) {
+				$args = [
+					'order_id'    => $order_id,
+					'amount'      => $commission['tax'],
+					'type'        => 'tax',
+					'status'      => 'pending',
+				];
+
+				$statement->add_fee( $args );
+			}
+
+			if ( ! empty( $commission['shipping'] && $commission['shipping'] > 0.00 ) ) {
+				$args = [
+					'order_id'    => $order_id,
+					'amount'      => $commission['shipping'],
+					'type'        => 'shipping',
+					'status'      => 'pending',
+				];
+
+				$statement->add_fee( $args );
+			}
+		}
+
+		if ( $totals['transactional_fee'] ) {
+			$args =  [
+				'order_id'    => $order_id,
+				'amount'      => $totals['transactional_fee'] ,
+                'type'        => 'transactional_fee',
+                'description' => __( 'Transactional Fee' ),
+                'status'      => 'paid',
+			];
+
+			$statement->add_fee( $args );
+		}
+
+		if ( $totals['base'] ) {
+
+			$args =  [
+				'order_id'    => $order_id,
+				'amount'      => $totals['base'] ,
+                'type'        => 'commission',
+                'description' => __( 'Base Commission' ),
+                'status'      => 'pending',
+			];
+
+			$statement->add_fee( $args );
 		}
 
 	}
