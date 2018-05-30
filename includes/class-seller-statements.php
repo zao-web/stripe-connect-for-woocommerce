@@ -56,8 +56,8 @@ class Seller_Statements {
         amount decimal(13,2),
         type varchar(155),
         status varchar(155),
-        PRIMARY KEY  (id)
-        KEY (seller_id)
+        PRIMARY KEY  (id),
+        KEY (seller_id),
         KEY (order_id)
         );";
 
