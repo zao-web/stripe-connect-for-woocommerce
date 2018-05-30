@@ -8,7 +8,7 @@ class Seller_Statements {
 
     protected $types = [
         'monthly_fee',
-        'transactional_fee',
+        'stripe_fee',
         'transactional_fee',
         'commission',
         'tax',

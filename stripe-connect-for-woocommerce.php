@@ -283,7 +283,8 @@ final class Stripe_Connect_For_WooCommerce {
 		$total      -= $payout_fee;
 		$log[]       = 'Payout fee of 0.25% of the total products, shipping, and taxes for ' . $vendor_name . ' is ' . $payout_fee;
 
-		$totals['transactional_fee'] = $stripe_fee + $payout_fee;
+		$totals['transactional_fee'] = $payout_fee;
+		$totals['stripe_fee']        = $stripe_fee;
 
 		$monthly_fee = $this->maybe_process_monthly_fee( $vendor_id, $commission['total'] );
 
@@ -603,6 +604,18 @@ final class Stripe_Connect_For_WooCommerce {
 				'amount'      => $totals['transactional_fee'] ,
                 'type'        => 'transactional_fee',
                 'description' => __( 'Transactional Fee' ),
+                'status'      => 'paid',
+			];
+
+			$statement->add_fee( $args );
+		}
+
+		if ( $totals['stripe_fee'] ) {
+			$args =  [
+				'order_id'    => $order_id,
+				'amount'      => $totals['stripe_fee'] ,
+                'type'        => 'stripe_fee',
+                'description' => __( 'Stripe Fee' ),
                 'status'      => 'paid',
 			];
 
