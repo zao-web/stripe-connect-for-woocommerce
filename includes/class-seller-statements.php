@@ -128,10 +128,26 @@ class Seller_Statements {
 
         }
 
+        if ( ! empty( $args['order_id'] ) ) {
+            $sql .= $this->db->prepare( "AND order_id = %d ", $args['order_id'] );
+        }
+
+        if ( ! empty( $args['type'] ) ) {
+            $sql .= $this->db->prepare( "AND type = %s ", $args['type'] );
+        }
+
+        if ( ! empty( $args['status'] ) ) {
+            $sql .= $this->db->prepare( "AND status = %s ", $args['status'] );
+        }
+
         $date_query = new WP_Date_Query( $args['date'], $this->table_name . '.date'  );
         $date_sql   = $date_query->get_sql();
 
-        return $this->db->get_results( $sql . $date_sql );
+        if ( ! empty( $date_sql ) ) {
+            $sql .= $date_sql;
+        }
+
+        return $this->db->get_results( $sql );
     }
 
     private function validate_args( $args ) {
@@ -158,7 +174,7 @@ class Seller_Statements {
         $args['amount'] = floatval( $args['amount'] );
 
         if ( ! in_array( $args['status'], $this->statuses, true ) ) {
-            $args['status'] = __( 'N/A' );
+            $args['status'] = __( '' );
         }
 
         if ( ! in_array( $args['type'], $this->types, true ) ) {

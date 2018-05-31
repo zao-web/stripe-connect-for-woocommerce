@@ -177,11 +177,75 @@ final class Stripe_Connect_For_WooCommerce {
 			add_filter( 'manage_users_custom_column'        , [ $this, 'render_stripe_id_column_data' ], 10, 3 );
 		}
 
+		add_filter( 'wcv_orders_table_rows', [ $this, 'filter_seller_dashboard_commissions' ] );
+
 		// TODO: get this working so that the commissions match the actual payouts.
 		// RELATED TODO: Ensure that Stripe webhook works properly, allowing for payouts received into vendor accounts to mark commissions as paid. payout.paid
 		// transfer.created - need to have a way to connect payouts and transfers for webhooks - pending support reply from Stripe.
 		// add_filter( 'wcv_vendor_dues'                   , [ $this, 'maybe_modify_totals' ]            , 20, 3 );
 		// add_action( 'init'                              , 'scfwc_maybe_charge_monthly_fee' );
+	}
+
+	private function get_order_range_dates() {
+		$pv_options         = get_option( 'wc_prd_vendor_options' );
+		$orders_sales_range = ( isset( $pv_options[ 'orders_sales_range' ] ) ) ? $pv_options[ 'orders_sales_range' ] : 'monthly';
+
+		$default_start = '';
+
+		switch ( $orders_sales_range ) {
+			case 'annually':
+				$default_start = '-1 year';
+				break;
+			case 'quarterly':
+				$default_start = '-3 month';
+				break;
+			case 'monthly':
+				$default_start = '-1 month';
+				break;
+			case 'weekly':
+				$default_start = '-1 week';
+				break;
+			case 'custom':
+				$default_start = '-1 year';
+				break;
+			default:
+				break;
+		}
+
+		$start 	= ( !empty( $_SESSION[ 'PV_Session' ][ '_wcv_order_start_date_input' ] ) ) 	? $_SESSION[ 'PV_Session' ][ '_wcv_order_start_date_input' ] : strtotime( apply_filters( 'wcv_order_start_date', $default_start ) );
+		$end 	= ( !empty( $_SESSION[ 'PV_Session' ][ '_wcv_order_end_date_input' ] ) ) 	? $_SESSION[ 'PV_Session' ][ '_wcv_order_end_date_input' ]   : strtotime( apply_filters( 'wcv_order_end_date', 'now' ) );
+
+		return [ 'start' => $start, 'end' => $end ];
+	}
+
+	public function filter_seller_dashboard_commissions( $rows ) {
+		$dates = $this->get_order_range_dates();
+
+		$seller_statements = new Seller_Statements( get_current_user_id() );
+		$seller_statements->set_start( strtotime( '-1 day', $dates['start'] ) )->set_end( strtotime( '+1 day', $dates['end'] ) );
+
+		foreach ( $rows as $index => $row ) {
+
+			$order_id = $row->ID;
+			$total    = $row->total;
+
+			$totals  = $seller_statements->get_totals( array( 'order_id' => $order_id ) );
+
+			$product  = max( $totals['pending']['product'], $totals['paid']['product'] );
+			$shipping = max( $totals['pending']['shipping'], $totals['paid']['shipping'] );
+			$tax      = max( $totals['pending']['taxes'], $totals['paid']['taxes'] );
+			$totals   = max( $totals['pending']['totals'], $totals['paid']['totals'] );
+
+			if ( ! $product ) {
+				continue;
+			}
+
+			$total_text 		= '<span class="wcv-tooltip" data-tip-text="'. sprintf( '%s %s %s %s %s %s', __( 'Product: ' , 'wcvendors-pro'), strip_tags( wc_price( $product ) ), __( 'Shipping: ' , 'wcvendors-pro'), strip_tags( wc_price( $shipping ) ), __( 'Tax: ' , 'wcvendors-pro'), strip_tags( wc_price( $tax ) ) ).'">'.wc_price( $totals ).'</span>';
+
+			$rows[ $index ]->total = $total_text;
+		}
+
+		return $rows;
 	}
 
 	/**
