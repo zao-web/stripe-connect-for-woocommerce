@@ -5,6 +5,8 @@ class Seller_Statements {
     protected $seller_id;
     protected $db;
     protected $table_name;
+    protected $start_date = '';
+    protected $end_date   = '';
 
     protected $types = [
         'monthly_fee',
@@ -94,19 +96,48 @@ class Seller_Statements {
 
     }
 
+    public function set_start( $start_timestamp ) {
+        $this->start_date = $start_timestamp;
+        return $this;
+    }
+
+    public function set_end( $end_timestamp ) {
+        $this->end_date = $end_timestamp;
+        return $this;
+    }
+
     public function get_fees( $args ) {
         $args = $this->validate_args( $args );
 
-        $date_query = new WP_Date_Query( $args, $this->table_name . '.date'  );
+        $sql = "SELECT * FROM $this->table_name WHERE seller_id = {$args['seller_id']} ";
+
+        if ( ! isset( $args['date'] ) && isset( $this->start_date ) && isset( $this->end_date ) ) {
+            $args['date'] = array(
+                'date' => array(
+                    'after'  => array(
+                        'year'  => date( 'Y', $this->start_date ),
+                        'month' => date( 'm', $this->start_date ),
+                        'day'   => date( 'd', $this->start_date ),
+                    ),
+                    'before' => array(
+                        'year'  => date( 'Y', $this->end_date ),
+                        'month' => date( 'm', $this->end_date ),
+                        'day'   => date( 'd', $this->end_date ),
+                    )
+                ) );
+
+        }
+
+        $date_query = new WP_Date_Query( $args['date'], $this->table_name . '.date'  );
         $date_sql   = $date_query->get_sql();
 
+        return $this->db->get_results( $sql . $date_sql );
     }
 
     private function validate_args( $args ) {
         $args = wp_parse_args(
             $args, [
                 'id'          => 0,
-                'date'        => current_time( 'mysql' ),
                 'seller_id'   => $this->seller_id,
                 'order_id'    => 0,
                 'amount'      => 0.00,
@@ -135,7 +166,6 @@ class Seller_Statements {
         }
 
         $args['description'] = sanitize_text_field( $args['description'] );
-        $args['date']        = sanitize_text_field( $args['date'] );
 
         if ( $id ) {
             $args['id']          = absint( $args['id'] );
@@ -144,5 +174,51 @@ class Seller_Statements {
         }
 
         return $args;
+    }
+
+    public function get_totals( $args ) {
+       $all_fees = $this->get_fees( $args );
+
+       $fees = [
+            'fees' => [],
+            'pending' => [
+                'tax'       => [],
+                'shipping'    => [],
+                'commission' => [],
+            ],
+            'paid' => [
+                'tax'       => [],
+                'shipping'    => [],
+                'commission' => [],
+            ]
+       ];
+
+       foreach ( $all_fees as $fee ) {
+
+            $type = $fee->type;
+
+            if ( false !== strpos( $type, '_fee' ) ) {
+                $fees['fees'][] = $fee->amount;
+            } else {
+                $fees[ $fee->status ][ $type ][] = $fee->amount;
+            }
+       }
+
+       $fees = [
+        'pending' => [
+            'product'  => array_sum( $fees['pending']['commission'] ) - array_sum( $fees['fees'] ),
+            'shipping' => array_sum( $fees['pending']['shipping'] ),
+            'taxes '   => array_sum( $fees['pending']['tax'] ),
+            'totals'   => array_sum( $fees['pending']['commission'] ) + array_sum( $fees['pending']['tax'] ) + array_sum( $fees['pending']['shipping'] ) - array_sum( $fees['fees'] ),
+        ],
+        'paid'    => [
+            'product'  => array_sum( $fees['paid']['commission'] ) - array_sum( $fees['fees'] ),
+            'shipping' => array_sum( $fees['paid']['shipping'] ),
+            'taxes '   => array_sum( $fees['paid']['tax'] ),
+            'totals'   => array_sum( $fees['paid']['commission'] ) + array_sum( $fees['paid']['tax'] ) + array_sum( $fees['paid']['shipping'] ) - array_sum( $fees['fees'] ),
+        ],
+       ];
+
+       return $fees;
     }
 }
