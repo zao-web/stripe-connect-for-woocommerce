@@ -170,6 +170,9 @@ final class Stripe_Connect_For_WooCommerce {
 		add_filter( 'woocommerce_shipping_packages'     , [ $this, 'add_shipping_package_meta' ] );
 		add_filter( 'wcv_vendor_dues'                   , [ $this, 'add_shipping_tax_to_commissions' ], 10, 3 );
 
+		add_filter( 'wcv_order_export_csv_rows'          , [ $this, 'adjust_exported_order_values' ] );
+		add_filter( 'wcv_order_export_csv_headers'       , [ $this, 'unset_totals_column_from_order_export' ] );
+		add_filter( 'woocommerce_order_get_items'        , [ $this, 'hack_wcv_vendor_email' ], 99, 2 );
 		add_action( 'stripe_connect_create_seller_payout', [ $this, 'record_seller_statements' ], 10, 7 );
 
 		if ( isset( $_GET['role'] ) && 'vendor' === $_GET['role'] ) {
@@ -184,6 +187,45 @@ final class Stripe_Connect_For_WooCommerce {
 		// transfer.created - need to have a way to connect payouts and transfers for webhooks - pending support reply from Stripe.
 		// add_filter( 'wcv_vendor_dues'                   , [ $this, 'maybe_modify_totals' ]            , 20, 3 );
 		// add_action( 'init'                              , 'scfwc_maybe_charge_monthly_fee' );
+	}
+
+	public function unset_totals_column_from_order_export( $cols ) {
+
+		unset( $cols['total'] );
+
+		return $cols;
+	}
+
+	public function hack_wcv_vendor_email( $items, $order ) {
+
+		$vendor = 0;
+
+		foreach ( $items as $key => $product ) {
+			if ( ! $vendor )  {
+				$vendor = $product->get_meta( 'vendor_id' );
+			}
+		}
+
+		$seller_statements = new Seller_Statements( $vendor );
+		$_totals           = $seller_statements->get_totals( array( 'order_id' => $order->get_id(), 'date' => false ) );
+
+		$totals   = max( $_totals['pending']['totals'], $_totals['paid']['totals'] );
+
+		add_filter( 'stripe_connect_commissions_email_render', function( $total ) use ( $items, $_totals, $vendor, $totals ) {
+			return $totals;
+		} );
+
+		return $items;
+
+	}
+
+	public function adjust_exported_order_values( $rows ) {
+
+		foreach ( $rows as $index => $row ) {
+			unset( $rows[ $index ][' total'] );
+		}
+
+		return $rows;
 	}
 
 	private function get_order_range_dates() {
