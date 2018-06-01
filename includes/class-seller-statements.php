@@ -76,7 +76,7 @@ class Seller_Statements {
         return $this->db->insert(
             $this->table_name,
             $args,
-            [ '%s', '%d', '%d', '%f', '%s', '%s', '%s' ]
+            [ '%s', '%s', '%s', '%s', '%s', '%s', '%s' ]
         );
     }
 
@@ -125,7 +125,8 @@ class Seller_Statements {
                         'day'   => date( 'd', $this->end_date ),
                     )
                 ) );
-
+        } else if ( ! isset( $args['date'] ) ) {
+            $args['date'] = current_time( 'mysql' );
         }
 
         if ( ! empty( $args['order_id'] ) ) {
