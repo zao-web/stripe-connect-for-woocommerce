@@ -71,7 +71,8 @@ class Seller_Statements {
 
     public function add_fee( $args ) {
 
-        $args = apply_filters( 'stripe_connect_insert_commissions_args', $this->validate_args( $args ) );
+        $args         = apply_filters( 'stripe_connect_insert_commissions_args', $this->validate_args( $args ) );
+        $args['date'] = current_time( 'mysql' );
 
         return $this->db->insert(
             $this->table_name,
