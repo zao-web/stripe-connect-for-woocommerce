@@ -233,7 +233,7 @@ final class Stripe_Connect_For_WooCommerce {
 
 			$product  = max( $totals['pending']['product'], $totals['paid']['product'] );
 			$shipping = max( $totals['pending']['shipping'], $totals['paid']['shipping'] );
-			$tax      = max( $totals['pending']['taxes'], $totals['paid']['taxes'] );
+			$tax      = max( $totals['pending']['tax'], $totals['paid']['tax'] );
 			$totals   = max( $totals['pending']['totals'], $totals['paid']['totals'] );
 
 			if ( ! $product ) {

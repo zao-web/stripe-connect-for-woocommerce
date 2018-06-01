@@ -226,13 +226,13 @@ class Seller_Statements {
         'pending' => [
             'product'  => array_sum( $fees['pending']['commission'] ) - array_sum( $fees['fees'] ),
             'shipping' => array_sum( $fees['pending']['shipping'] ),
-            'tax'   => array_sum( $fees['pending']['tax'] ),
+            'tax'      => array_sum( $fees['pending']['tax'] ),
             'totals'   => array_sum( $fees['pending']['commission'] ) + array_sum( $fees['pending']['tax'] ) + array_sum( $fees['pending']['shipping'] ) - array_sum( $fees['fees'] ),
         ],
         'paid'    => [
             'product'  => array_sum( $fees['paid']['commission'] ) - array_sum( $fees['fees'] ),
             'shipping' => array_sum( $fees['paid']['shipping'] ),
-            'tax'   => array_sum( $fees['paid']['tax'] ),
+            'tax'      => array_sum( $fees['paid']['tax'] ),
             'totals'   => array_sum( $fees['paid']['commission'] ) + array_sum( $fees['paid']['tax'] ) + array_sum( $fees['paid']['shipping'] ) - array_sum( $fees['fees'] ),
         ],
        ];
