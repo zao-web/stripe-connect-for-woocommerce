@@ -670,6 +670,7 @@ final class Stripe_Connect_For_WooCommerce {
 
 		if ( $totals['monthly_fee'] ) {
 			$args =  [
+				'order_id'    => $order_id,
 				'amount'      => $totals['monthly_fee'],
                 'type'        => 'monthly_fee',
                 'description' => __( 'Monthly Chamfr Fee' ),
